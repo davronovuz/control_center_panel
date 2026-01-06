@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Kirish — Hermes{% endblock %}
+
+{% block auth_content %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div class="card shadow-lg" style="width: 100%; max-width: 420px; border: none; border-radius: 15px;">
+        <div class="card-body p-5">
+            <div class="text-center mb-4">
+                <i class="bi bi-diagram-3 text-primary" style="font-size: 48px;"></i>
+                <h2 class="mt-3 fw-bold" style="color: #2C3E50;">HERMES</h2>
+                <p class="text-muted">Tizimga kirish</p>
+            </div>
+
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label class="form-label">Login</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" name="username" class="form-control" placeholder="Login kiriting" required autofocus>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Parol</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                        <input type="password" name="password" class="form-control" placeholder="Parol kiriting" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Kirish
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

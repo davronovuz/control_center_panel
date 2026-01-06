@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if leader %}Yetakchini tahrirlash{% else %}Yangi yetakchi{% endif %} — Hermes{% endblock %}
+{% block page_title %}{% if leader %}Yetakchini tahrirlash{% else %}Yangi yetakchi qo'shish{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Shaxsiy ma'lumotlar -->
+            <div class="table-card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-person me-2"></i>Shaxsiy ma'lumotlar
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Ism <span class="text-danger">*</span></label>
+                            <input type="text" name="first_name" class="form-control" value="{{ leader.first_name|default:'' }}" required placeholder="Ism">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Familiya <span class="text-danger">*</span></label>
+                            <input type="text" name="last_name" class="form-control" value="{{ leader.last_name|default:'' }}" required placeholder="Familiya">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Telefon <span class="text-danger">*</span></label>
+                            <input type="text" name="phone" class="form-control" value="{{ leader.phone|default:'' }}" required placeholder="+998901234567">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Holat</label>
+                            <select name="status" class="form-select">
+                                {% if leader %}
+                                {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if leader.status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                                {% else %}
+                                <option value="active" selected>Faol</option>
+                                <option value="inactive">Nofaol</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Login ma'lumotlari -->
+            <div class="table-card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-shield-lock me-2"></i>Login ma'lumotlari
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Username <span class="text-danger">*</span></label>
+                            <input type="text" name="username" class="form-control" value="{{ leader.username|default:'' }}" {% if leader %}readonly{% else %}required{% endif %} placeholder="login">
+                            {% if leader %}
+                            <small class="text-muted">Username o'zgartirib bo'lmaydi</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{% if leader %}Yangi parol{% else %}Parol <span class="text-danger">*</span>{% endif %}</label>
+                            <input type="password" name="{% if leader %}new_password{% else %}password{% endif %}" class="form-control" {% if not leader %}required{% endif %} placeholder="{% if leader %}Bo'sh qoldiring o'zgarmaydi{% else %}Parol{% endif %}">
+                            {% if leader %}
+                            <small class="text-muted">Faqat o'zgartirmoqchi bo'lsangiz to'ldiring</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manzil -->
+            <div class="table-card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-geo-alt me-2"></i>Manzil
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Viloyat</label>
+                            <select name="region" class="form-select" id="regionSelect">
+                                <option value="">Tanlang...</option>
+                                {% for region in regions %}
+                                <option value="{{ region.pk }}" {% if leader.region_id == region.pk %}selected{% endif %}>{{ region.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Tuman</label>
+                            <select name="district" class="form-select" id="districtSelect">
+                                <option value="">Tanlang...</option>
+                                {% if districts %}
+                                {% for district in districts %}
+                                <option value="{{ district.pk }}" {% if leader.district_id == district.pk %}selected{% endif %}>{{ district.name }}</option>
+                                {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Mahalla</label>
+                            <select name="mahalla" class="form-select" id="mahallaSelect">
+                                <option value="">Tanlang...</option>
+                                {% if mahallas %}
+                                {% for mahalla in mahallas %}
+                                <option value="{{ mahalla.pk }}" {% if leader.mahalla_id == mahalla.pk %}selected{% endif %}>{{ mahalla.name }}</option>
+                                {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-2"></i>{% if leader %}Saqlash{% else %}Qo'shish{% endif %}
+                </button>
+                <a href="{% url 'accounts:leader_list' %}" class="btn btn-light">
+                    <i class="bi bi-x-lg me-2"></i>Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        {% if leader %}
+        <!-- Statistika -->
+        <div class="table-card mb-4">
+            <div class="card-header">
+                <i class="bi bi-bar-chart me-2"></i>Statistika
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Jami vazifalar:</span>
+                    <strong>{{ leader.task_assignments.count }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Bajarilgan:</span>
+                    <strong class="text-success">{{ leader.task_assignments.filter.status__completed.count|default:0 }}</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Ro'yxatdan o'tgan:</span>
+                    <strong>{{ leader.created_at|date:"d.m.Y" }}</strong>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Yordam -->
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-lightbulb me-2"></i>Yordam
+            </div>
+            <div class="card-body small text-muted">
+                <p><strong>Telefon formati:</strong> +998XXXXXXXXX</p>
+                <p><strong>Username:</strong> Faqat lotin harflari va raqamlar</p>
+                <p><strong>Parol:</strong> Kamida 8 ta belgi</p>
+                <hr>
+                <p class="mb-0">Yetakchi Telegram bot orqali vazifalarni bajaradi.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

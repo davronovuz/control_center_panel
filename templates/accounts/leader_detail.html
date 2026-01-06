@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ leader.get_full_name }} — Hermes{% endblock %}
+{% block page_title %}Yetakchi profili{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Asosiy ma'lumot -->
+    <div class="col-lg-8">
+        <!-- Profile Card -->
+        <div class="table-card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="d-flex gap-3">
+                        <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 80px; height: 80px; font-size: 32px;">
+                            {{ leader.first_name|slice:":1"|upper }}{{ leader.last_name|slice:":1"|upper }}
+                        </div>
+                        <div>
+                            <h4 class="mb-1">{{ leader.get_full_name|default:leader.username }}</h4>
+                            <p class="text-muted mb-2">@{{ leader.username }}</p>
+                            <div class="d-flex gap-2">
+                                {% if leader.status == 'active' %}
+                                <span class="badge-status badge-active">Faol</span>
+                                {% elif leader.status == 'inactive' %}
+                                <span class="badge-status badge-draft">Nofaol</span>
+                                {% else %}
+                                <span class="badge-status badge-cancelled">Bloklangan</span>
+                                {% endif %}
+                                <span class="badge bg-light text-dark">{{ leader.get_role_display }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'accounts:leader_edit' leader.pk %}" class="btn btn-light">
+                            <i class="bi bi-pencil me-1"></i>Tahrirlash
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistika -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card text-center py-3">
+                    <div class="number">{{ stats.total }}</div>
+                    <div class="label">Jami vazifa</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card text-center py-3">
+                    <div class="number text-warning">{{ stats.pending }}</div>
+                    <div class="label">Kutmoqda</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card text-center py-3">
+                    <div class="number text-info">{{ stats.in_progress }}</div>
+                    <div class="label">Jarayonda</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card text-center py-3">
+                    <div class="number text-success">{{ stats.completed }}</div>
+                    <div class="label">Bajarilgan</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Oxirgi vazifalar -->
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-list-task me-2"></i>Oxirgi vazifalar
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Vazifa</th>
+                            <th>Holat</th>
+                            <th>Jarayon</th>
+                            <th>Yuborilgan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in recent_assignments %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'tasks:task_detail' assignment.task.pk %}" class="text-decoration-none">
+                                    {{ assignment.task.title|truncatechars:40 }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge-status badge-{{ assignment.status }}">
+                                    {{ assignment.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress" style="width: 60px; height: 6px;">
+                                        <div class="progress-bar bg-success" style="width: {{ assignment.progress_percent }}%"></div>
+                                    </div>
+                                    <small>{{ assignment.progress_percent }}%</small>
+                                </div>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ assignment.sent_at|date:"d.m.Y" }}</small>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">
+                                Vazifalar yo'q
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Kontakt -->
+        <div class="table-card mb-4">
+            <div class="card-header">
+                <i class="bi bi-person-lines-fill me-2"></i>Kontakt
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted d-block">Telefon</small>
+                    {% if leader.phone %}
+                    <a href="tel:{{ leader.phone }}" class="text-decoration-none">
+                        <i class="bi bi-telephone me-1"></i>{{ leader.phone }}
+                    </a>
+                    {% else %}
+                    <span class="text-muted">Ko'rsatilmagan</span>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <small class="text-muted d-block">Telegram ID</small>
+                    {% if leader.telegram_id %}
+                    <span><i class="bi bi-telegram me-1"></i>{{ leader.telegram_id }}</span>
+                    {% else %}
+                    <span class="text-muted">Ulanmagan</span>
+                    {% endif %}
+                </div>
+
+                {% if leader.telegram_username %}
+                <div>
+                    <small class="text-muted d-block">Telegram</small>
+                    <a href="https://t.me/{{ leader.telegram_username }}" target="_blank" class="text-decoration-none">
+                        @{{ leader.telegram_username }}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Manzil -->
+        <div class="table-card mb-4">
+            <div class="card-header">
+                <i class="bi bi-geo-alt me-2"></i>Manzil
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <small class="text-muted d-block">Viloyat</small>
+                    <span>{{ leader.region|default:"Ko'rsatilmagan" }}</span>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted d-block">Tuman</small>
+                    <span>{{ leader.district|default:"Ko'rsatilmagan" }}</span>
+                </div>
+                <div>
+                    <small class="text-muted d-block">Mahalla</small>
+                    <span>{{ leader.mahalla|default:"Ko'rsatilmagan" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tizim -->
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-clock-history me-2"></i>Tizim
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <small class="text-muted d-block">Ro'yxatdan o'tgan</small>
+                    <span>{{ leader.created_at|date:"d.m.Y H:i" }}</span>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted d-block">Oxirgi faollik</small>
+                    <span>{{ leader.last_activity|date:"d.m.Y H:i"|default:"Noma'lum" }}</span>
+                </div>
+                <div>
+                    <small class="text-muted d-block">Oxirgi login</small>
+                    <span>{{ leader.last_login|date:"d.m.Y H:i"|default:"Hech qachon" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

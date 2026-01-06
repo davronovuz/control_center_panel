@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Yetakchini o'chirish — Hermes{% endblock %}
+{% block page_title %}Yetakchini o'chirish{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="table-card">
+            <div class="card-body text-center py-5">
+                <div class="text-danger mb-4">
+                    <i class="bi bi-exclamation-triangle" style="font-size: 64px;"></i>
+                </div>
+
+                <h4 class="mb-3">Yetakchini o'chirishni tasdiqlang</h4>
+
+                <div class="bg-light rounded p-3 mb-4">
+                    <div class="fw-bold">{{ leader.get_full_name|default:leader.username }}</div>
+                    <div class="text-muted">{{ leader.phone|default:"Telefon yo'q" }}</div>
+                    <div class="text-muted">{{ leader.mahalla|default:"Mahalla ko'rsatilmagan" }}</div>
+                </div>
+
+                <p class="text-muted mb-4">
+                    Bu amalni ortga qaytarib bo'lmaydi. Yetakchining barcha ma'lumotlari o'chiriladi.
+                </p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url 'accounts:leader_list' %}" class="btn btn-light">
+                            <i class="bi bi-x-lg me-2"></i>Bekor qilish
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-2"></i>O'chirish
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if task %}Vazifani tahrirlash{% else %}Yangi vazifa{% endif %} — Hermes{% endblock %}
+{% block page_title %}{% if task %}Vazifani tahrirlash{% else %}Yangi vazifa yaratish{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <!-- Asosiy ma'lumotlar -->
+            <div class="table-card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-2"></i>Asosiy ma'lumotlar
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Vazifa nomi <span class="text-danger">*</span></label>
+                        <input type="text" name="title" class="form-control" value="{{ task.title|default:'' }}" required placeholder="Masalan: Oylik monitoring">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tavsif</label>
+                        <textarea name="description" class="form-control" rows="3" placeholder="Vazifa haqida batafsil ma'lumot...">{{ task.description|default:'' }}</textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Vazifa turi</label>
+                            <select name="task_type" class="form-select">
+                                {% for value, label in type_choices %}
+                                <option value="{{ value }}" {% if task.task_type == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Muhimlik</label>
+                            <select name="priority" class="form-select">
+                                {% for value, label in priority_choices %}
+                                <option value="{{ value }}" {% if task.priority == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Muddat <span class="text-danger">*</span></label>
+                            <input type="datetime-local" name="deadline" class="form-control" value="{% if task.deadline %}{{ task.deadline|date:'Y-m-d\TH:i' }}{% endif %}" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manzil targeting -->
+            <div class="table-card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-geo-alt me-2"></i>Kimga yuboriladi
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Viloyat</label>
+                            <select name="target_region" class="form-select" id="regionSelect">
+                                <option value="">Barcha viloyatlar</option>
+                                {% for region in regions %}
+                                <option value="{{ region.pk }}" {% if task.target_region_id == region.pk %}selected{% endif %}>{{ region.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tuman</label>
+                            <select name="target_district" class="form-select" id="districtSelect">
+                                <option value="">Barcha tumanlar</option>
+                            </select>
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Bo'sh qoldirsangiz barcha yetakchilarga yuboriladi
+                    </small>
+                </div>
+            </div>
+
+            <!-- Savollar -->
+            <div class="table-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-question-circle me-2"></i>Savollar</span>
+                    <button type="button" class="btn btn-sm btn-primary" id="addQuestion">
+                        <i class="bi bi-plus-lg me-1"></i>Savol qo'shish
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="questionsContainer">
+                        {% if questions %}
+                        {% for question in questions %}
+                        <div class="question-item border rounded p-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-secondary">Savol {{ forloop.counter }}</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-question">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-8 mb-2">
+                                    <input type="text" name="question_text[]" class="form-control" value="{{ question.text }}" placeholder="Savol matni" required>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <select name="question_type[]" class="form-select">
+                                        {% for value, label in question_type_choices %}
+                                        <option value="{{ value }}" {% if question.question_type == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="question-item border rounded p-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-secondary">Savol 1</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-question">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-8 mb-2">
+                                    <input type="text" name="question_text[]" class="form-control" placeholder="Savol matni" required>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <select name="question_type[]" class="form-select">
+                                        {% for value, label in question_type_choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-2"></i>{% if task %}Saqlash{% else %}Yaratish{% endif %}
+                </button>
+                <a href="{% url 'tasks:task_list' %}" class="btn btn-light">
+                    <i class="bi bi-x-lg me-2"></i>Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-lightbulb me-2"></i>Yordam
+            </div>
+            <div class="card-body">
+                <h6>Savol turlari:</h6>
+                <ul class="small text-muted">
+                    <li><strong>Matn</strong> — erkin javob yozish</li>
+                    <li><strong>Raqam</strong> — faqat son kiritish</li>
+                    <li><strong>Tanlov</strong> — variantlardan birini tanlash</li>
+                    <li><strong>Ha/Yo'q</strong> — ikki tugma</li>
+                    <li><strong>Sana</strong> — kalendar tanlash</li>
+                    <li><strong>Telefon</strong> — +998 formatda</li>
+                </ul>
+
+                <hr>
+
+                <h6>Maslahatlar:</h6>
+                <ul class="small text-muted">
+                    <li>Savollarni qisqa va aniq yozing</li>
+                    <li>Muhim savollarni birinchi qo'ying</li>
+                    <li>Muddat real bo'lsin</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Savol qo'shish
+    let questionCount = document.querySelectorAll('.question-item').length;
+
+    document.getElementById('addQuestion').addEventListener('click', function() {
+        questionCount++;
+        const container = document.getElementById('questionsContainer');
+        const html = `
+            <div class="question-item border rounded p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="badge bg-secondary">Savol ${questionCount}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-question">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+                <div class="row">
+                    <div class="col-md-8 mb-2">
+                        <input type="text" name="question_text[]" class="form-control" placeholder="Savol matni" required>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <select name="question_type[]" class="form-select">
+                            {% for value, label in question_type_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    });
+
+    // Savol o'chirish
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-question')) {
+            const items = document.querySelectorAll('.question-item');
+            if (items.length > 1) {
+                e.target.closest('.question-item').remove();
+                // Raqamlarni yangilash
+                document.querySelectorAll('.question-item').forEach((item, index) => {
+                    item.querySelector('.badge').textContent = `Savol ${index + 1}`;
+                });
+                questionCount = document.querySelectorAll('.question-item').length;
+            } else {
+                alert('Kamida 1 ta savol bo\'lishi kerak!');
+            }
+        }
+    });
+
+    // Viloyat-tuman bog'lanishi
+    document.getElementById('regionSelect').addEventListener('change', function() {
+        const regionId = this.value;
+        const districtSelect = document.getElementById('districtSelect');
+
+        districtSelect.innerHTML = '<option value="">Barcha tumanlar</option>';
+
+        if (regionId) {
+            // AJAX bilan tumanlarni olish (keyinroq qo'shamiz)
+            // Hozircha placeholder
+        }
+    });
+</script>
+{% endblock %}

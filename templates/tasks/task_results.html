@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load task_tags %}
+
+{% block title %}{{ task.title }} — Natijalar{% endblock %}
+{% block page_title %}Vazifa natijalari{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-1">{{ task.title }}</h5>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-muted">{{ results|length }} ta javob</span>
+            <span class="badge-status badge-{{ task.status }}">{{ task.get_status_display }}</span>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-light">
+            <i class="bi bi-arrow-left me-1"></i>Orqaga
+        </a>
+        <a href="{% url 'tasks:task_export' task.pk %}" class="btn btn-success">
+            <i class="bi bi-download me-1"></i>Excel yuklash
+        </a>
+    </div>
+</div>
+
+<!-- Statistika -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card text-center py-3">
+            <div class="number">{{ task.stats_total_assigned }}</div>
+            <div class="label">Jami tayinlangan</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card text-center py-3">
+            <div class="number text-success">{{ task.stats_total_completed }}</div>
+            <div class="label">Bajarilgan</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card text-center py-3">
+            <div class="number text-warning">{{ task.stats_total_assigned|subtract:task.stats_total_completed }}</div>
+            <div class="label">Kutilmoqda</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card text-center py-3">
+            <div class="number text-primary">{{ task.stats_completion_rate|floatformat:0 }}%</div>
+            <div class="label">Bajarilish</div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Table -->
+<div class="table-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table me-2"></i>Natijalar jadvali</span>
+        <span class="badge bg-primary">{{ results|length }} ta</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">№</th>
+                    <th style="min-width: 150px;">Yetakchi</th>
+                    <th style="min-width: 120px;">Mahalla</th>
+                    {% for question in questions %}
+                    <th style="min-width: 150px;" title="{{ question.text }}">
+                        <span class="d-inline-block text-truncate" style="max-width: 150px;">
+                            {{ question.text }}
+                        </span>
+                        <div class="small text-muted">{{ question.get_question_type_display }}</div>
+                    </th>
+                    {% endfor %}
+                    <th style="width: 130px;">Bajarilgan vaqt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results %}
+                <tr>
+                    <td class="text-muted">{{ forloop.counter }}</td>
+                    <td>
+                        <a href="{% url 'accounts:leader_detail' row.leader.pk %}" class="text-decoration-none">
+                            <div class="fw-medium">{{ row.leader.get_full_name|default:row.leader.username }}</div>
+                            {% if row.leader.phone %}
+                            <small class="text-muted">{{ row.leader.phone }}</small>
+                            {% endif %}
+                        </a>
+                    </td>
+                    <td>
+                        {% if row.leader.mahalla %}
+                        <div>{{ row.leader.mahalla.name }}</div>
+                        <small class="text-muted">{{ row.leader.district|default:"" }}</small>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% for question in questions %}
+                    <td>
+                        {% with answer=row.answers|get_item:question.order %}
+                        {% if answer and answer != '-' %}
+                        <span class="{% if question.question_type == 'yes_no' %}badge {% if answer == 'Ha' %}bg-success{% else %}bg-secondary{% endif %}{% endif %}">
+                            {{ answer }}
+                        </span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    {% endfor %}
+                    <td>
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>
+                            {{ row.completed_at|date:"d.m.Y" }}<br>
+                            {{ row.completed_at|date:"H:i" }}
+                        </small>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ questions|length|add:4 }}" class="text-center py-5">
+                        <div class="py-4">
+                            <i class="bi bi-inbox text-muted" style="font-size: 64px;"></i>
+                            <h5 class="text-muted mt-3">Hali javoblar yo'q</h5>
+                            <p class="text-muted">Yetakchilar vazifani bajargandan so'ng natijalar shu yerda ko'rinadi</p>
+                            <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-outline-primary mt-2">
+                                <i class="bi bi-arrow-left me-1"></i>Vazifaga qaytish
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if results %}
+    <!-- Footer -->
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            <i class="bi bi-info-circle me-1"></i>
+            Jami {{ questions|length }} ta savol, {{ results|length }} ta javob
+        </small>
+        <a href="{% url 'tasks:task_export' task.pk %}" class="btn btn-sm btn-success">
+            <i class="bi bi-file-earmark-excel me-1"></i>Excel ga eksport
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Savollar ro'yxati -->
+<div class="table-card mt-4">
+    <div class="card-header">
+        <i class="bi bi-question-circle me-2"></i>Savollar ({{ questions|length }})
+    </div>
+    <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+            {% for question in questions %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-secondary me-2">{{ question.order }}</span>
+                    {{ question.text }}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-dark">{{ question.get_question_type_display }}</span>
+                    {% if question.is_required %}
+                    <span class="badge bg-danger">Majburiy</span>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table th {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        z-index: 10;
+    }
+
+    .table-responsive {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .stat-card {
+        border-left: 4px solid var(--secondary-color);
+    }
+
+    .stat-card .number {
+        font-size: 24px;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}Bosh sahifa — Hermes{% endblock %}
+{% block page_title %}Bosh sahifa{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="number">{{ stats.active_tasks }}</div>
+                    <div class="label">Faol vazifalar</div>
+                </div>
+                <div class="icon primary">
+                    <i class="bi bi-list-task"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="number">{{ stats.completed_tasks }}</div>
+                    <div class="label">Yakunlangan</div>
+                </div>
+                <div class="icon success">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="number">{{ stats.active_leaders }}</div>
+                    <div class="label">Faol yetakchilar</div>
+                </div>
+                <div class="icon warning">
+                    <i class="bi bi-people"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="number text-danger">{{ overdue_tasks }}</div>
+                    <div class="label">Muddati o'tgan</div>
+                </div>
+                <div class="icon danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Faol vazifalar -->
+    <div class="col-lg-6">
+        <div class="table-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock me-2"></i>Faol vazifalar</span>
+                <a href="{% url 'tasks:task_list' %}?status=active" class="btn btn-sm btn-outline-primary">Barchasi</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Vazifa</th>
+                            <th>Muddat</th>
+                            <th>Bajarilish</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in active_tasks %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'tasks:task_detail' task.pk %}" class="text-decoration-none">
+                                    {{ task.title|truncatechars:30 }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if task.is_overdue %}
+                                <span class="text-danger">
+                                    <i class="bi bi-exclamation-circle"></i>
+                                    {{ task.deadline|date:"d.m.Y" }}
+                                </span>
+                                {% else %}
+                                {{ task.deadline|date:"d.m.Y H:i" }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="width: 80px;">
+                                        <div class="progress-bar bg-success" style="width: {{ task.stats_completion_rate }}%"></div>
+                                    </div>
+                                    <small>{{ task.stats_completion_rate|floatformat:0 }}%</small>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">
+                                Faol vazifalar yo'q
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Oxirgi tayinlashlar -->
+    <div class="col-lg-6">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-arrow-repeat me-2"></i>Oxirgi faoliyat
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Yetakchi</th>
+                            <th>Vazifa</th>
+                            <th>Holat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in recent_assignments %}
+                        <tr>
+                            <td>{{ assignment.leader.get_full_name|default:assignment.leader.username }}</td>
+                            <td>
+                                <a href="{% url 'tasks:task_detail' assignment.task.pk %}" class="text-decoration-none">
+                                    {{ assignment.task.title|truncatechars:25 }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge-status badge-{{ assignment.status }}">
+                                    {{ assignment.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">
+                                Faoliyat yo'q
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bajarilish statistikasi -->
+<div class="row g-4 mt-2">
+    <div class="col-12">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-pie-chart me-2"></i>Tayinlashlar holati
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col">
+                        <div class="h3 mb-0">{{ assignment_stats.pending }}</div>
+                        <small class="text-muted">Yuborildi</small>
+                    </div>
+                    <div class="col">
+                        <div class="h3 mb-0 text-info">{{ assignment_stats.seen }}</div>
+                        <small class="text-muted">Ko'rdi</small>
+                    </div>
+                    <div class="col">
+                        <div class="h3 mb-0 text-warning">{{ assignment_stats.in_progress }}</div>
+                        <small class="text-muted">Jarayonda</small>
+                    </div>
+                    <div class="col">
+                        <div class="h3 mb-0 text-success">{{ assignment_stats.completed }}</div>
+                        <small class="text-muted">Bajarildi</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

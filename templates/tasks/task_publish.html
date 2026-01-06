@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Vazifani e'lon qilish — Hermes{% endblock %}
+{% block page_title %}Vazifani e'lon qilish{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="table-card">
+            <div class="card-body py-5">
+                <div class="text-center mb-4">
+                    <div class="text-success mb-3">
+                        <i class="bi bi-send" style="font-size: 64px;"></i>
+                    </div>
+                    <h4>Vazifani e'lon qilishni tasdiqlang</h4>
+                </div>
+
+                <!-- Vazifa ma'lumoti -->
+                <div class="bg-light rounded p-4 mb-4">
+                    <h5 class="mb-3">{{ task.title }}</h5>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <small class="text-muted">Savollar soni:</small>
+                            <div class="fw-bold">{{ task.questions.count }} ta</div>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">Muddat:</small>
+                            <div class="fw-bold">{{ task.deadline|date:"d.m.Y H:i" }}</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">Muhimlik:</small>
+                            <div>
+                                <span class="badge-status badge-{{ task.priority }}">{{ task.get_priority_display }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">Manzil:</small>
+                            <div class="fw-bold">
+                                {% if task.target_district %}
+                                {{ task.target_district }}
+                                {% elif task.target_region %}
+                                {{ task.target_region }}
+                                {% else %}
+                                Barcha yetakchilar
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Yetakchilar soni -->
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Bu vazifa <strong>{{ target_leaders_count }}</strong> ta yetakchiga yuboriladi.
+                </div>
+
+                <!-- Yetakchilar ro'yxati -->
+                {% if target_leaders %}
+                <div class="mb-4">
+                    <h6>Yetakchilar (birinchi 20 tasi):</h6>
+                    <div class="row">
+                        {% for leader in target_leaders %}
+                        <div class="col-md-6 mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-person text-muted"></i>
+                                <span>{{ leader.get_full_name|default:leader.username }}</span>
+                                <small class="text-muted">— {{ leader.mahalla|default:"" }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if target_leaders_count > 20 %}
+                    <small class="text-muted">...va yana {{ target_leaders_count|add:"-20" }} ta yetakchi</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Buttons -->
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-light">
+                            <i class="bi bi-x-lg me-2"></i>Bekor qilish
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-send me-2"></i>E'lon qilish
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

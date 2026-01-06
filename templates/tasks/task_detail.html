@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ task.title }} — Hermes{% endblock %}
+{% block page_title %}Vazifa tafsilotlari{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h4 class="mb-1">{{ task.title }}</h4>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="badge-status badge-{{ task.status }}">{{ task.get_status_display }}</span>
+            <span class="badge-status badge-{{ task.priority }}">{{ task.get_priority_display }}</span>
+            <span class="text-muted">•</span>
+            <small class="text-muted">Yaratilgan: {{ task.created_at|date:"d.m.Y H:i" }}</small>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        {% if task.status == 'draft' %}
+        <a href="{% url 'tasks:task_edit' task.pk %}" class="btn btn-light">
+            <i class="bi bi-pencil me-1"></i>Tahrirlash
+        </a>
+        <a href="{% url 'tasks:task_publish' task.pk %}" class="btn btn-success">
+            <i class="bi bi-send me-1"></i>E'lon qilish
+        </a>
+        {% endif %}
+        {% if task.status == 'active' or task.status == 'completed' %}
+        <a href="{% url 'tasks:task_results' task.pk %}" class="btn btn-light">
+            <i class="bi bi-table me-1"></i>Natijalar
+        </a>
+        <a href="{% url 'tasks:task_export' task.pk %}" class="btn btn-success">
+            <i class="bi bi-download me-1"></i>Excel
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <!-- Asosiy ma'lumot -->
+    <div class="col-lg-8">
+        <!-- Statistika -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="stat-card text-center py-3">
+                    <div class="number">{{ stats.total }}</div>
+                    <div class="label">Jami</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card text-center py-3">
+                    <div class="number text-info">{{ stats.seen }}</div>
+                    <div class="label">Ko'rdi</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card text-center py-3">
+                    <div class="number text-warning">{{ stats.in_progress }}</div>
+                    <div class="label">Jarayonda</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card text-center py-3">
+                    <div class="number text-success">{{ stats.completed }}</div>
+                    <div class="label">Bajarildi</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tavsif -->
+        {% if task.description %}
+        <div class="table-card mb-4">
+            <div class="card-header">
+                <i class="bi bi-text-paragraph me-2"></i>Tavsif
+            </div>
+            <div class="card-body">
+                {{ task.description|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Savollar -->
+        <div class="table-card mb-4">
+            <div class="card-header">
+                <i class="bi bi-question-circle me-2"></i>Savollar ({{ questions|length }})
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for question in questions %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-secondary me-2">{{ question.order }}</span>
+                            {{ question.text }}
+                        </div>
+                        <span class="badge bg-light text-dark">{{ question.get_question_type_display }}</span>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-center text-muted py-4">
+                        Savollar yo'q
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Yetakchilar ro'yxati -->
+        <div class="table-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-people me-2"></i>Yetakchilar</span>
+                {% if stats.pending > 0 %}
+                <button class="btn btn-sm btn-warning">
+                    <i class="bi bi-bell me-1"></i>Eslatma yuborish ({{ stats.pending }})
+                </button>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Yetakchi</th>
+                            <th>Mahalla</th>
+                            <th>Holat</th>
+                            <th>Jarayon</th>
+                            <th>Vaqt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'accounts:leader_detail' assignment.leader.pk %}" class="text-decoration-none">
+                                    {{ assignment.leader.get_full_name|default:assignment.leader.username }}
+                                </a>
+                            </td>
+                            <td>{{ assignment.leader.mahalla|default:"-" }}</td>
+                            <td>
+                                <span class="badge-status badge-{{ assignment.status }}">
+                                    {{ assignment.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress" style="width: 60px; height: 6px;">
+                                        <div class="progress-bar bg-success" style="width: {{ assignment.progress_percent }}%"></div>
+                                    </div>
+                                    <small>{{ assignment.progress_percent }}%</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if assignment.completed_at %}
+                                <small class="text-success">{{ assignment.completed_at|date:"d.m.Y H:i" }}</small>
+                                {% elif assignment.started_at %}
+                                <small class="text-warning">{{ assignment.started_at|date:"d.m.Y H:i" }}</small>
+                                {% else %}
+                                <small class="text-muted">{{ assignment.sent_at|date:"d.m.Y H:i" }}</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                Yetakchilar tayinlanmagan
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if assignments.has_other_pages %}
+            <div class="card-footer bg-white">
+                <nav>
+                    <ul class="pagination pagination-sm justify-content-center mb-0">
+                        {% if assignments.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ assignments.previous_page_number }}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">{{ assignments.number }} / {{ assignments.paginator.num_pages }}</span>
+                        </li>
+
+                        {% if assignments.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ assignments.next_page_number }}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Ma'lumot -->
+        <div class="table-card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Ma'lumot
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <td class="text-muted">Muddat:</td>
+                        <td class="text-end">
+                            {% if task.is_overdue %}
+                            <span class="text-danger fw-bold">{{ task.deadline|date:"d.m.Y H:i" }}</span>
+                            {% else %}
+                            {{ task.deadline|date:"d.m.Y H:i" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if task.time_remaining %}
+                    <tr>
+                        <td class="text-muted">Qoldi:</td>
+                        <td class="text-end">{{ task.time_remaining }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td class="text-muted">Turi:</td>
+                        <td class="text-end">{{ task.get_task_type_display }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Viloyat:</td>
+                        <td class="text-end">{{ task.target_region|default:"Barchasi" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Tuman:</td>
+                        <td class="text-end">{{ task.target_district|default:"Barchasi" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Yaratuvchi:</td>
+                        <td class="text-end">{{ task.created_by }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Bajarilish -->
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-pie-chart me-2"></i>Bajarilish
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="display-4 fw-bold text-success">{{ task.stats_completion_rate|floatformat:0 }}%</div>
+                    <small class="text-muted">{{ stats.completed }} / {{ stats.total }} bajarildi</small>
+                </div>
+
+                <div class="progress mb-3" style="height: 10px;">
+                    <div class="progress-bar bg-success" style="width: {{ task.stats_completion_rate }}%"></div>
+                </div>
+
+                <div class="row text-center small">
+                    <div class="col">
+                        <div class="text-muted">Kutmoqda</div>
+                        <div class="fw-bold">{{ stats.pending }}</div>
+                    </div>
+                    <div class="col">
+                        <div class="text-muted">Ko'rdi</div>
+                        <div class="fw-bold text-info">{{ stats.seen }}</div>
+                    </div>
+                    <div class="col">
+                        <div class="text-muted">Jarayonda</div>
+                        <div class="fw-bold text-warning">{{ stats.in_progress }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

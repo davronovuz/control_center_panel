@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+
+{% block title %}Statistika — Hermes{% endblock %}
+{% block page_title %}Statistika{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Vazifalar holati -->
+    <div class="col-lg-4">
+        <div class="table-card h-100">
+            <div class="card-header">
+                <i class="bi bi-pie-chart me-2"></i>Vazifalar holati
+            </div>
+            <div class="card-body">
+                {% for item in tasks_by_status %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge-status badge-{{ item.status }}">{{ item.status }}</span>
+                    <strong>{{ item.count }}</strong>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center">Ma'lumot yo'q</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Muhimlik bo'yicha -->
+    <div class="col-lg-4">
+        <div class="table-card h-100">
+            <div class="card-header">
+                <i class="bi bi-flag me-2"></i>Muhimlik bo'yicha
+            </div>
+            <div class="card-body">
+                {% for item in tasks_by_priority %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge-status badge-{{ item.priority }}">{{ item.priority }}</span>
+                    <strong>{{ item.count }}</strong>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center">Ma'lumot yo'q</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Tur bo'yicha -->
+    <div class="col-lg-4">
+        <div class="table-card h-100">
+            <div class="card-header">
+                <i class="bi bi-collection me-2"></i>Tur bo'yicha
+            </div>
+            <div class="card-body">
+                {% for item in tasks_by_type %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>{{ item.task_type }}</span>
+                    <strong>{{ item.count }}</strong>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center">Ma'lumot yo'q</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Yetakchilar -->
+<div class="row g-4 mt-2">
+    <div class="col-lg-6">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-trophy me-2"></i>Eng faol yetakchilar
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Yetakchi</th>
+                            <th>Bajarilgan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for leader in top_leaders %}
+                        <tr>
+                            <td>
+                                {% if forloop.counter == 1 %}
+                                <span class="text-warning"><i class="bi bi-trophy-fill"></i></span>
+                                {% elif forloop.counter == 2 %}
+                                <span class="text-secondary"><i class="bi bi-trophy-fill"></i></span>
+                                {% elif forloop.counter == 3 %}
+                                <span class="text-danger"><i class="bi bi-trophy-fill"></i></span>
+                                {% else %}
+                                {{ forloop.counter }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'accounts:leader_detail' leader.pk %}" class="text-decoration-none">
+                                    {{ leader.get_full_name|default:leader.username }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="fw-bold text-success">{{ leader.completed_count }}</span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">Ma'lumot yo'q</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Mahallalar -->
+    <div class="col-lg-6">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-geo-alt me-2"></i>Mahallalar bo'yicha
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Mahalla</th>
+                            <th>Yetakchilar</th>
+                            <th>Vazifalar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mahalla in mahalla_stats %}
+                        <tr>
+                            <td>{{ mahalla.name }}</td>
+                            <td>{{ mahalla.leaders_count }}</td>
+                            <td>{{ mahalla.tasks_count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">Ma'lumot yo'q</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Oylik trend -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="table-card">
+            <div class="card-header">
+                <i class="bi bi-graph-up me-2"></i>Oylik trend (oxirgi 6 oy)
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    {% for data in monthly_data %}
+                    <div class="col">
+                        <div class="mb-2">
+                            <div class="fw-bold text-primary">{{ data.tasks }}</div>
+                            <small class="text-muted">vazifa</small>
+                        </div>
+                        <div class="mb-2">
+                            <div class="fw-bold text-success">{{ data.completed }}</div>
+                            <small class="text-muted">bajarildi</small>
+                        </div>
+                        <div class="border-top pt-2">
+                            <small class="text-muted">{{ data.month }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

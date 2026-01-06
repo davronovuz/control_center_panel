@@ -1,0 +1,12 @@
+<div class="progress" style="height: {{ height }}px;">
+    <div class="progress-bar bg-{{ color }}"
+         role="progressbar"
+         style="width: {{ percentage }}%;"
+         aria-valuenow="{{ percentage }}"
+         aria-valuemin="0"
+         aria-valuemax="100">
+        {% if show_label %}
+        <span class="small">{{ percentage }}%</span>
+        {% endif %}
+    </div>
+</div>
