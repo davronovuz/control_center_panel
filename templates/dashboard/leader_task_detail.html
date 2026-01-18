@@ -1,0 +1,704 @@
+{% extends 'base_leader.html' %}
+
+{% block title %}{{ task.title }} | HERMES{% endblock %}
+
+{% block page_title %}Vazifa{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Task Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-12 col-md-8">
+                    <h3 class="mb-2">{{ task.title }}</h3>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        {% if task.type == 'table' %}
+                        <span class="badge bg-info">📊 Jadval</span>
+                        {% elif task.type == 'survey' %}
+                        <span class="badge" style="background: #9C27B0;">📋 So'rovnoma</span>
+                        {% elif task.type == 'report' %}
+                        <span class="badge bg-warning text-dark">📝 Hisobot</span>
+                        {% elif task.type == 'file' %}
+                        <span class="badge bg-success">📁 Fayl yuklash</span>
+                        {% endif %}
+
+                        {% if task.priority == 'urgent' %}
+                        <span class="badge bg-danger">Shoshilinch</span>
+                        {% elif task.priority == 'high' %}
+                        <span class="badge bg-warning text-dark">Muhim</span>
+                        {% endif %}
+
+                        {% if assignment.status == 'submitted' %}
+                        <span class="badge bg-primary">Yuborilgan</span>
+                        {% elif assignment.status == 'approved' %}
+                        <span class="badge bg-success">Tasdiqlandi</span>
+                        {% endif %}
+                    </div>
+
+                    {% if task.description %}
+                    <p class="text-muted mb-0">{{ task.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-12 col-md-4 text-md-end mt-3 mt-md-0">
+                    <div class="mb-2">
+                        <small class="text-muted">Muddat:</small>
+                        <span class="{% if task.is_overdue %}text-danger fw-bold{% else %}fw-semibold{% endif %}">
+                            {{ task.deadline|date:"d.m.Y H:i" }}
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">Qolgan vaqt:</small>
+                        <span class="{% if task.is_overdue %}text-danger{% else %}text-success{% endif %} fw-semibold">
+                            {{ task.time_remaining|default:"—" }}
+                        </span>
+                    </div>
+                    <div>
+                        <small class="text-muted">Jarayon:</small>
+                        <span class="fw-semibold">{{ assignment.progress }}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress mt-3" style="height: 10px;">
+                <div class="progress-bar" style="width: {{ assignment.progress }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    {% if task.instructions %}
+    <!-- Instructions -->
+    <div class="alert alert-info mb-4">
+        <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Ko'rsatmalar</h6>
+        <p class="mb-0">{{ task.instructions }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Task Form -->
+    <form method="POST" id="taskForm" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        {% if task.type == 'table' %}
+        <!-- TABLE TYPE -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="bi bi-table me-2"></i>Ma'lumotlarni kiriting</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0" id="dataTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                {% for col in columns %}
+                                <th style="min-width: {{ col.width }}px;">
+                                    {{ col.title }}
+                                    {% if col.required %}<span class="text-danger">*</span>{% endif %}
+                                    {% if col.help_text %}
+                                    <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip" title="{{ col.help_text }}"></i>
+                                    {% endif %}
+                                </th>
+                                {% endfor %}
+                                {% if task.allow_multiple_rows %}
+                                <th style="width: 60px;"></th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            {% if task.allow_multiple_rows %}
+                                {% for row_num in "0123456789"|make_list %}
+                                    {% if forloop.first or responses %}
+                                    <tr class="data-row" data-row="{{ forloop.counter0 }}">
+                                        <td class="text-center text-muted">{{ forloop.counter }}</td>
+                                        {% for col in columns %}
+                                        <td>
+                                            {% with response_key="col_"|add:col.pk|stringformat:"s"|add:"_"|add:forloop.parentloop.counter0|stringformat:"s" %}
+                                            {% if col.data_type == 'text' %}
+                                            <input type="text"
+                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
+                                                   class="form-control form-control-sm auto-save"
+                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   placeholder="{{ col.placeholder }}"
+                                                   {% if col.required %}required{% endif %}>
+                                            {% elif col.data_type == 'textarea' %}
+                                            <textarea name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
+                                                      class="form-control form-control-sm auto-save"
+                                                      rows="2"
+                                                      {% if col.required %}required{% endif %}>{{ responses|get_item:response_key|default:'' }}</textarea>
+                                            {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
+                                            <input type="number"
+                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
+                                                   class="form-control form-control-sm auto-save"
+                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
+                                                   {% if col.required %}required{% endif %}>
+                                            {% elif col.data_type == 'date' %}
+                                            <input type="date"
+                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
+                                                   class="form-control form-control-sm auto-save"
+                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   {% if col.required %}required{% endif %}>
+                                            {% elif col.data_type == 'choice' %}
+                                            <select name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
+                                                    class="form-select form-select-sm auto-save"
+                                                    {% if col.required %}required{% endif %}>
+                                                <option value="">Tanlang...</option>
+                                                {% for choice in col.choices %}
+                                                <option value="{{ choice.value }}" {% if responses|get_item:response_key == choice.value %}selected{% endif %}>{{ choice.label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            {% elif col.data_type == 'boolean' %}
+                                            <select name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
+                                                    class="form-select form-select-sm auto-save"
+                                                    {% if col.required %}required{% endif %}>
+                                                <option value="">Tanlang...</option>
+                                                <option value="true" {% if responses|get_item:response_key == 'true' %}selected{% endif %}>Ha</option>
+                                                <option value="false" {% if responses|get_item:response_key == 'false' %}selected{% endif %}>Yo'q</option>
+                                            </select>
+                                            {% elif col.data_type == 'phone' %}
+                                            <input type="tel"
+                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
+                                                   class="form-control form-control-sm auto-save"
+                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   placeholder="+998901234567"
+                                                   {% if col.required %}required{% endif %}>
+                                            {% else %}
+                                            <input type="text"
+                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
+                                                   class="form-control form-control-sm auto-save"
+                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   {% if col.required %}required{% endif %}>
+                                            {% endif %}
+                                            {% endwith %}
+                                        </td>
+                                        {% endfor %}
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger remove-row">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                            <tr class="data-row" data-row="0">
+                                <td class="text-center text-muted">1</td>
+                                {% for col in columns %}
+                                <td>
+                                    {% with response_key="col_"|add:col.pk|stringformat:"s"|add:"_0" %}
+                                    {% if col.data_type == 'text' %}
+                                    <input type="text"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}"
+                                           placeholder="{{ col.placeholder }}"
+                                           {% if col.required %}required{% endif %}>
+                                    {% elif col.data_type == 'textarea' %}
+                                    <textarea name="col_{{ col.pk }}_0"
+                                              class="form-control form-control-sm auto-save"
+                                              rows="2"
+                                              {% if col.required %}required{% endif %}>{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}</textarea>
+                                    {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
+                                    <input type="number"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_number|default:'' }}{% endif %}"
+                                           step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
+                                           {% if col.required %}required{% endif %}>
+                                    {% elif col.data_type == 'date' %}
+                                    <input type="date"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
+                                           {% if col.required %}required{% endif %}>
+                                    {% elif col.data_type == 'choice' %}
+                                    <select name="col_{{ col.pk }}_0"
+                                            class="form-select form-select-sm auto-save"
+                                            {% if col.required %}required{% endif %}>
+                                        <option value="">Tanlang...</option>
+                                        {% for choice in col.choices %}
+                                        <option value="{{ choice.value }}" {% if responses|get_item:response_key and responses|get_item:response_key.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% elif col.data_type == 'boolean' %}
+                                    <select name="col_{{ col.pk }}_0"
+                                            class="form-select form-select-sm auto-save"
+                                            {% if col.required %}required{% endif %}>
+                                        <option value="">Tanlang...</option>
+                                        <option value="true" {% if responses|get_item:response_key and responses|get_item:response_key.value_boolean %}selected{% endif %}>Ha</option>
+                                        <option value="false" {% if responses|get_item:response_key and responses|get_item:response_key.value_boolean == False %}selected{% endif %}>Yo'q</option>
+                                    </select>
+                                    {% elif col.data_type == 'phone' %}
+                                    <input type="tel"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}"
+                                           placeholder="+998901234567"
+                                           {% if col.required %}required{% endif %}>
+                                    {% else %}
+                                    <input type="text"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}"
+                                           {% if col.required %}required{% endif %}>
+                                    {% endif %}
+                                    {% endwith %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% if task.allow_multiple_rows %}
+            <div class="card-footer">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="addRow">
+                    <i class="bi bi-plus-lg"></i> Qator qo'shish
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        {% elif task.type == 'survey' %}
+        <!-- SURVEY TYPE -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="bi bi-ui-checks me-2"></i>Savollarga javob bering</h5>
+            </div>
+            <div class="card-body">
+                {% for question in questions %}
+                <div class="mb-4 pb-4 {% if not forloop.last %}border-bottom{% endif %}">
+                    <label class="form-label fw-semibold">
+                        {{ forloop.counter }}. {{ question.text }}
+                        {% if question.required %}<span class="text-danger">*</span>{% endif %}
+                    </label>
+                    {% if question.help_text %}
+                    <small class="text-muted d-block mb-2">{{ question.help_text }}</small>
+                    {% endif %}
+
+                    {% with response_key="q_"|add:question.pk|stringformat:"s" %}
+                    {% if question.answer_type == 'text' %}
+                    <input type="text"
+                           name="q_{{ question.pk }}"
+                           class="form-control auto-save"
+                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}"
+                           {% if question.required %}required{% endif %}>
+
+                    {% elif question.answer_type == 'textarea' %}
+                    <textarea name="q_{{ question.pk }}"
+                              class="form-control auto-save"
+                              rows="4"
+                              {% if question.required %}required{% endif %}>{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}</textarea>
+
+                    {% elif question.answer_type == 'number' %}
+                    <input type="number"
+                           name="q_{{ question.pk }}"
+                           class="form-control auto-save"
+                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_number|default:'' }}{% endif %}"
+                           {% if question.required %}required{% endif %}>
+
+                    {% elif question.answer_type == 'date' %}
+                    <input type="date"
+                           name="q_{{ question.pk }}"
+                           class="form-control auto-save"
+                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
+                           {% if question.required %}required{% endif %}>
+
+                    {% elif question.answer_type == 'choice' %}
+                    <div class="mt-2">
+                        {% for choice in question.choices %}
+                        <div class="form-check">
+                            <input class="form-check-input auto-save"
+                                   type="radio"
+                                   name="q_{{ question.pk }}"
+                                   value="{{ choice.value }}"
+                                   id="q_{{ question.pk }}_{{ forloop.counter }}"
+                                   {% if responses|get_item:response_key and responses|get_item:response_key.value_choice == choice.value %}checked{% endif %}
+                                   {% if question.required %}required{% endif %}>
+                            <label class="form-check-label" for="q_{{ question.pk }}_{{ forloop.counter }}">
+                                {{ choice.label }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% elif question.answer_type == 'multiple' %}
+                    <div class="mt-2">
+                        {% for choice in question.choices %}
+                        <div class="form-check">
+                            <input class="form-check-input auto-save"
+                                   type="checkbox"
+                                   name="q_{{ question.pk }}"
+                                   value="{{ choice.value }}"
+                                   id="q_{{ question.pk }}_{{ forloop.counter }}"
+                                   {% if responses|get_item:response_key and choice.value in responses|get_item:response_key.value_json %}checked{% endif %}>
+                            <label class="form-check-label" for="q_{{ question.pk }}_{{ forloop.counter }}">
+                                {{ choice.label }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% elif question.answer_type == 'boolean' %}
+                    <div class="mt-2">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input auto-save"
+                                   type="radio"
+                                   name="q_{{ question.pk }}"
+                                   value="true"
+                                   id="q_{{ question.pk }}_yes"
+                                   {% if responses|get_item:response_key and responses|get_item:response_key.value_boolean %}checked{% endif %}
+                                   {% if question.required %}required{% endif %}>
+                            <label class="form-check-label" for="q_{{ question.pk }}_yes">Ha</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input auto-save"
+                                   type="radio"
+                                   name="q_{{ question.pk }}"
+                                   value="false"
+                                   id="q_{{ question.pk }}_no"
+                                   {% if responses|get_item:response_key and responses|get_item:response_key.value_boolean == False %}checked{% endif %}>
+                            <label class="form-check-label" for="q_{{ question.pk }}_no">Yo'q</label>
+                        </div>
+                    </div>
+
+                    {% elif question.answer_type == 'rating' %}
+                    <div class="rating-input mt-2">
+                        {% for i in "12345" %}
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input auto-save"
+                                   type="radio"
+                                   name="q_{{ question.pk }}"
+                                   value="{{ i }}"
+                                   id="q_{{ question.pk }}_{{ i }}"
+                                   {% if responses|get_item:response_key and responses|get_item:response_key.value_number|stringformat:"d" == i %}checked{% endif %}
+                                   {% if question.required %}required{% endif %}>
+                            <label class="form-check-label" for="q_{{ question.pk }}_{{ i }}">{{ i }} ⭐</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% elif question.answer_type == 'file' %}
+                    <input type="file"
+                           name="q_{{ question.pk }}"
+                           class="form-control"
+                           {% if question.required %}required{% endif %}>
+                    {% if responses|get_item:response_key and responses|get_item:response_key.value_file %}
+                    <small class="text-muted">Mavjud fayl: {{ responses|get_item:response_key.value_file.name }}</small>
+                    {% endif %}
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% elif task.type == 'report' %}
+        <!-- REPORT TYPE -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="bi bi-file-text me-2"></i>Hisobotni yozing</h5>
+            </div>
+            <div class="card-body">
+                <textarea name="report_text"
+                          class="form-control auto-save"
+                          rows="15"
+                          placeholder="Hisobotingizni shu yerga yozing..."
+                          required>{% if responses.report %}{{ responses.report.value_text|default:'' }}{% endif %}</textarea>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-info-circle"></i> Minimum 100 ta belgi yozishingiz kerak
+                </small>
+            </div>
+        </div>
+
+        {% elif task.type == 'file' %}
+        <!-- FILE TYPE -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="bi bi-file-earmark-arrow-up me-2"></i>Fayllarni yuklang</h5>
+            </div>
+            <div class="card-body">
+                <div class="upload-area p-5 border-2 border-dashed rounded-3 text-center" id="uploadArea">
+                    <i class="bi bi-cloud-arrow-up fs-1 text-muted mb-3 d-block"></i>
+                    <h5>Fayllarni shu yerga tashlang</h5>
+                    <p class="text-muted mb-3">yoki</p>
+                    <input type="file" name="files" id="fileInput" class="d-none" multiple
+                           accept="{{ task.allowed_extensions|join:',' }}">
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="bi bi-folder2-open"></i> Fayllarni tanlash
+                    </button>
+                    <p class="text-muted mt-3 mb-0 small">
+                        Ruxsat etilgan formatlar: {{ task.allowed_extensions|join:', '|default:'Barcha formatlar' }}<br>
+                        Maksimal hajm: {{ task.max_file_size }} MB | Maksimal fayllar: {{ task.max_files }} ta
+                    </p>
+                </div>
+
+                <!-- Uploaded Files List -->
+                <div id="filesList" class="mt-3">
+                    {% for response in responses.values %}
+                    {% if response.value_file %}
+                    <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-file-earmark text-primary"></i>
+                            <span>{{ response.value_file.name|slice:"-30" }}</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Action Buttons -->
+        {% if assignment.can_edit %}
+        <div class="card">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted" id="saveStatus">
+                        <i class="bi bi-cloud-check text-success"></i> Avtomatik saqlanadi
+                    </span>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'dashboard:leader_tasks' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Orqaga
+                    </a>
+                    <button type="button" class="btn btn-outline-primary" id="saveBtn">
+                        <i class="bi bi-save"></i> Saqlash
+                    </button>
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#submitModal">
+                        <i class="bi bi-send"></i> Yuborish
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body">
+                <a href="{% url 'dashboard:leader_tasks' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Orqaga
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </form>
+
+    <!-- Submit Modal -->
+    <div class="modal fade" id="submitModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Vazifani yuborish</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="bi bi-send text-success" style="font-size: 48px;"></i>
+                    </div>
+                    <h5>Vazifani yuborishni tasdiqlaysizmi?</h5>
+                    <p class="text-muted">
+                        {% if task.allow_edit_after_submit %}
+                        Yuborilgandan keyin ham tahrirlash mumkin bo'ladi.
+                        {% else %}
+                        Yuborilgandan keyin o'zgartirish imkoni bo'lmaydi.
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                    <form method="POST" action="{% url 'dashboard:leader_task_submit' assignment.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-send"></i> Yuborish
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.border-dashed {
+    border-style: dashed !important;
+}
+
+.upload-area {
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: var(--primary-color) !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('taskForm');
+    const saveStatus = document.getElementById('saveStatus');
+    let saveTimeout;
+
+    // Auto-save function
+    function autoSave() {
+        saveStatus.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Saqlanmoqda...';
+
+        const formData = new FormData(form);
+        formData.append('auto_save', 'true');
+
+        fetch('{% url "api:task_auto_save" assignment.pk %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                saveStatus.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saqlandi';
+            } else {
+                saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-warning"></i> Xatolik';
+            }
+        })
+        .catch(error => {
+            saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-danger"></i> Xatolik';
+        });
+    }
+
+    // Listen for changes on auto-save fields
+    document.querySelectorAll('.auto-save').forEach(input => {
+        input.addEventListener('input', function() {
+            clearTimeout(saveTimeout);
+            saveStatus.innerHTML = '<i class="bi bi-three-dots"></i> O\'zgarishlar...';
+            saveTimeout = setTimeout(autoSave, 2000);
+        });
+
+        input.addEventListener('change', function() {
+            clearTimeout(saveTimeout);
+            autoSave();
+        });
+    });
+
+    // Manual save button
+    document.getElementById('saveBtn')?.addEventListener('click', function() {
+        clearTimeout(saveTimeout);
+        autoSave();
+    });
+
+    // Add row for multiple rows table
+    {% if task.allow_multiple_rows %}
+    let rowCount = document.querySelectorAll('.data-row').length;
+
+    document.getElementById('addRow')?.addEventListener('click', function() {
+        const tbody = document.getElementById('tableBody');
+        const newRow = document.querySelector('.data-row').cloneNode(true);
+
+        newRow.dataset.row = rowCount;
+        newRow.querySelector('td:first-child').textContent = rowCount + 1;
+
+        newRow.querySelectorAll('input, select, textarea').forEach(input => {
+            const name = input.name;
+            input.name = name.replace(/_\d+$/, '_' + rowCount);
+            input.value = '';
+        });
+
+        tbody.appendChild(newRow);
+        rowCount++;
+    });
+
+    // Remove row
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-row')) {
+            const rows = document.querySelectorAll('.data-row');
+            if (rows.length > 1) {
+                e.target.closest('.data-row').remove();
+                // Renumber rows
+                document.querySelectorAll('.data-row').forEach((row, index) => {
+                    row.querySelector('td:first-child').textContent = index + 1;
+                });
+            }
+        }
+    });
+    {% endif %}
+
+    // File upload drag & drop
+    {% if task.type == 'file' %}
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'));
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'));
+    });
+
+    uploadArea.addEventListener('drop', function(e) {
+        const files = e.dataTransfer.files;
+        fileInput.files = files;
+        handleFiles(files);
+    });
+
+    fileInput.addEventListener('change', function() {
+        handleFiles(this.files);
+    });
+
+    function handleFiles(files) {
+        const filesList = document.getElementById('filesList');
+
+        Array.from(files).forEach(file => {
+            const item = document.createElement('div');
+            item.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-2';
+            item.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-file-earmark text-primary"></i>
+                    <span>${file.name}</span>
+                    <small class="text-muted">(${(file.size / 1024 / 1024).toFixed(2)} MB)</small>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-file">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+            filesList.appendChild(item);
+        });
+    }
+    {% endif %}
+
+    // Tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+
+<style>
+.spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}
