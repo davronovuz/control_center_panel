@@ -1,41 +1,209 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if task %}Vazifani tahrirlash{% else %}Yangi vazifa{% endif %} — Hermes{% endblock %}
-{% block page_title %}{% if task %}Vazifani tahrirlash{% else %}Yangi vazifa yaratish{% endif %}{% endblock %}
+{% block title %}{% if task %}Vazifani tahrirlash{% else %}Yangi vazifa{% endif %} | HERMES{% endblock %}
+
+{% block page_title %}{% if task %}Vazifani tahrirlash{% else %}Yangi vazifa{% endif %}{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-8">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
+<div class="fade-in">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-header-title">{% if task %}Vazifani tahrirlash{% else %}Yangi vazifa yaratish{% endif %}</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tasks:task_list' %}">Vazifalar</a></li>
+                    <li class="breadcrumb-item active">{% if task %}Tahrirlash{% else %}Yangi{% endif %}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
 
-            <!-- Asosiy ma'lumotlar -->
-            <div class="table-card mb-4">
-                <div class="card-header">
-                    <i class="bi bi-info-circle me-2"></i>Asosiy ma'lumotlar
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">Vazifa nomi <span class="text-danger">*</span></label>
-                        <input type="text" name="title" class="form-control" value="{{ task.title|default:'' }}" required placeholder="Masalan: Oylik monitoring">
+    <form method="POST" id="taskForm">
+        {% csrf_token %}
+
+        <div class="row g-4">
+            <!-- Main Form -->
+            <div class="col-12 col-lg-8">
+                <!-- Basic Info -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title"><i class="bi bi-info-circle me-2"></i>Asosiy ma'lumotlar</h5>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Tavsif</label>
-                        <textarea name="description" class="form-control" rows="3" placeholder="Vazifa haqida batafsil ma'lumot...">{{ task.description|default:'' }}</textarea>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Vazifa turi</label>
-                            <select name="task_type" class="form-select">
-                                {% for value, label in type_choices %}
-                                <option value="{{ value }}" {% if task.task_type == value %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Vazifa nomi <span class="text-danger">*</span></label>
+                            <input type="text" name="title" class="form-control" placeholder="Vazifa nomini kiriting" value="{{ task.title|default:'' }}" required>
                         </div>
 
-                        <div class="col-md-4 mb-3">
+                        <div class="mb-3">
+                            <label class="form-label">Tavsif</label>
+                            <textarea name="description" class="form-control" rows="3" placeholder="Vazifa haqida qisqacha...">{{ task.description|default:'' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Ko'rsatmalar</label>
+                            <textarea name="instructions" class="form-control" rows="4" placeholder="Yetakchilar uchun batafsil yo'riqnoma...">{{ task.instructions|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Task Type -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title"><i class="bi bi-ui-checks me-2"></i>Vazifa turi</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 mb-4">
+                            {% for value, label in type_choices %}
+                            <div class="col-6 col-md-4">
+                                <div class="form-check task-type-card">
+                                    <input class="form-check-input" type="radio" name="type" id="type_{{ value }}" value="{{ value }}"
+                                        {% if task.type == value or not task and value == 'table' %}checked{% endif %}
+                                        {% if task %}disabled{% endif %}>
+                                    <label class="form-check-label task-type-label" for="type_{{ value }}">
+                                        <div class="task-type-icon">
+                                            {% if value == 'table' %}<i class="bi bi-table"></i>
+                                            {% elif value == 'survey' %}<i class="bi bi-ui-checks"></i>
+                                            {% elif value == 'report' %}<i class="bi bi-file-text"></i>
+                                            {% elif value == 'file' %}<i class="bi bi-file-earmark-arrow-up"></i>
+                                            {% else %}<i class="bi bi-collection"></i>{% endif %}
+                                        </div>
+                                        <div class="task-type-name">{{ label }}</div>
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Table Columns -->
+                        <div id="tableSection" class="task-type-section">
+                            <h6 class="mb-3">Jadval ustunlari</h6>
+                            <div id="columnsContainer">
+                                {% if columns %}
+                                    {% for col in columns %}
+                                    <div class="column-row d-flex gap-3 mb-3 align-items-center">
+                                        <div class="flex-grow-1">
+                                            <input type="text" name="column_title[]" class="form-control" placeholder="Ustun nomi" value="{{ col.title }}">
+                                        </div>
+                                        <div style="width: 180px;">
+                                            <select name="column_type[]" class="form-select">
+                                                {% for dt_value, dt_label in column_type_choices %}
+                                                <option value="{{ dt_value }}" {% if col.data_type == dt_value %}selected{% endif %}>{{ dt_label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <button type="button" class="btn btn-icon btn-danger btn-sm remove-column">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="column-row d-flex gap-3 mb-3 align-items-center">
+                                    <div class="flex-grow-1">
+                                        <input type="text" name="column_title[]" class="form-control" placeholder="Ustun nomi">
+                                    </div>
+                                    <div style="width: 180px;">
+                                        <select name="column_type[]" class="form-select">
+                                            {% for dt_value, dt_label in column_type_choices %}
+                                            <option value="{{ dt_value }}">{{ dt_label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="button" class="btn btn-icon btn-danger btn-sm remove-column">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addColumn">
+                                <i class="bi bi-plus-lg"></i> Ustun qo'shish
+                            </button>
+                        </div>
+
+                        <!-- Survey Questions -->
+                        <div id="surveySection" class="task-type-section" style="display: none;">
+                            <h6 class="mb-3">Savollar</h6>
+                            <div id="questionsContainer">
+                                {% if questions %}
+                                    {% for q in questions %}
+                                    <div class="question-row mb-3 p-3 bg-light rounded-3">
+                                        <div class="d-flex gap-3 align-items-start">
+                                            <div class="flex-grow-1">
+                                                <textarea name="question_text[]" class="form-control mb-2" rows="2" placeholder="Savol matni">{{ q.text }}</textarea>
+                                            </div>
+                                            <div style="width: 160px;">
+                                                <select name="question_type[]" class="form-select">
+                                                    {% for qt_value, qt_label in question_type_choices %}
+                                                    <option value="{{ qt_value }}" {% if q.answer_type == qt_value %}selected{% endif %}>{{ qt_label }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <button type="button" class="btn btn-icon btn-danger btn-sm remove-question">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="question-row mb-3 p-3 bg-light rounded-3">
+                                    <div class="d-flex gap-3 align-items-start">
+                                        <div class="flex-grow-1">
+                                            <textarea name="question_text[]" class="form-control mb-2" rows="2" placeholder="Savol matni"></textarea>
+                                        </div>
+                                        <div style="width: 160px;">
+                                            <select name="question_type[]" class="form-select">
+                                                {% for qt_value, qt_label in question_type_choices %}
+                                                <option value="{{ qt_value }}">{{ qt_label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <button type="button" class="btn btn-icon btn-danger btn-sm remove-question">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addQuestion">
+                                <i class="bi bi-plus-lg"></i> Savol qo'shish
+                            </button>
+                        </div>
+
+                        <!-- Report Section -->
+                        <div id="reportSection" class="task-type-section" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Hisobot turida yetakchilar matn shaklida hisobot yozadilar.
+                            </div>
+                        </div>
+
+                        <!-- File Section -->
+                        <div id="fileSection" class="task-type-section" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Fayl turida yetakchilar fayl (rasm, PDF, Word) yuklaydilar.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar Settings -->
+            <div class="col-12 col-lg-4">
+                <!-- Schedule -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title"><i class="bi bi-calendar me-2"></i>Muddat</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Muddat <span class="text-danger">*</span></label>
+                            <input type="datetime-local" name="deadline" class="form-control" value="{{ task.deadline|date:'Y-m-d\TH:i'|default:'' }}" required>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label">Muhimlik</label>
                             <select name="priority" class="form-select">
                                 {% for value, label in priority_choices %}
@@ -43,209 +211,244 @@
                                 {% endfor %}
                             </select>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Muddat <span class="text-danger">*</span></label>
-                            <input type="datetime-local" name="deadline" class="form-control" value="{% if task.deadline %}{{ task.deadline|date:'Y-m-d\TH:i' }}{% endif %}" required>
+                <!-- Target -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title"><i class="bi bi-geo-alt me-2"></i>Kimga</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="target_all" name="target_all" {% if task.target_all or not task %}checked{% endif %}>
+                            <label class="form-check-label" for="target_all">Barcha yetakchilarga</label>
+                        </div>
+
+                        <div id="targetFilters" style="{% if task.target_all or not task %}display: none;{% endif %}">
+                            <div class="mb-3">
+                                <label class="form-label">Viloyat</label>
+                                <select name="target_region" class="form-select" id="regionSelect">
+                                    <option value="">Tanlang...</option>
+                                    {% for region in regions %}
+                                    <option value="{{ region.pk }}" {% if task.target_region_id == region.pk %}selected{% endif %}>{{ region.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Tuman</label>
+                                <select name="target_district" class="form-select" id="districtSelect">
+                                    <option value="">Tanlang...</option>
+                                    {% for district in districts %}
+                                    <option value="{{ district.pk }}" {% if task.target_district_id == district.pk %}selected{% endif %}>{{ district.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Manzil targeting -->
-            <div class="table-card mb-4">
-                <div class="card-header">
-                    <i class="bi bi-geo-alt me-2"></i>Kimga yuboriladi
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Viloyat</label>
-                            <select name="target_region" class="form-select" id="regionSelect">
-                                <option value="">Barcha viloyatlar</option>
-                                {% for region in regions %}
-                                <option value="{{ region.pk }}" {% if task.target_region_id == region.pk %}selected{% endif %}>{{ region.name }}</option>
-                                {% endfor %}
-                            </select>
+                <!-- Settings -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title"><i class="bi bi-gear me-2"></i>Sozlamalar</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="requires_approval" name="requires_approval" {% if task.requires_approval %}checked{% endif %}>
+                            <label class="form-check-label" for="requires_approval">Tasdiqlash talab etilsin</label>
                         </div>
 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Tuman</label>
-                            <select name="target_district" class="form-select" id="districtSelect">
-                                <option value="">Barcha tumanlar</option>
-                            </select>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="allow_multiple_rows" name="allow_multiple_rows" {% if task.allow_multiple_rows %}checked{% endif %}>
+                            <label class="form-check-label" for="allow_multiple_rows">Ko'p qator kiritish</label>
                         </div>
                     </div>
-                    <small class="text-muted">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Bo'sh qoldirsangiz barcha yetakchilarga yuboriladi
-                    </small>
                 </div>
-            </div>
 
-            <!-- Savollar -->
-            <div class="table-card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-question-circle me-2"></i>Savollar</span>
-                    <button type="button" class="btn btn-sm btn-primary" id="addQuestion">
-                        <i class="bi bi-plus-lg me-1"></i>Savol qo'shish
+                <!-- Actions -->
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-lg"></i> {% if task %}Saqlash{% else %}Yaratish{% endif %}
                     </button>
+                    <a href="{% url 'tasks:task_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-lg"></i> Bekor qilish
+                    </a>
                 </div>
-                <div class="card-body">
-                    <div id="questionsContainer">
-                        {% if questions %}
-                        {% for question in questions %}
-                        <div class="question-item border rounded p-3 mb-3">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <span class="badge bg-secondary">Savol {{ forloop.counter }}</span>
-                                <button type="button" class="btn btn-sm btn-outline-danger remove-question">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-8 mb-2">
-                                    <input type="text" name="question_text[]" class="form-control" value="{{ question.text }}" placeholder="Savol matni" required>
-                                </div>
-                                <div class="col-md-4 mb-2">
-                                    <select name="question_type[]" class="form-select">
-                                        {% for value, label in question_type_choices %}
-                                        <option value="{{ value }}" {% if question.question_type == value %}selected{% endif %}>{{ label }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        {% else %}
-                        <div class="question-item border rounded p-3 mb-3">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <span class="badge bg-secondary">Savol 1</span>
-                                <button type="button" class="btn btn-sm btn-outline-danger remove-question">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-8 mb-2">
-                                    <input type="text" name="question_text[]" class="form-control" placeholder="Savol matni" required>
-                                </div>
-                                <div class="col-md-4 mb-2">
-                                    <select name="question_type[]" class="form-select">
-                                        {% for value, label in question_type_choices %}
-                                        <option value="{{ value }}">{{ label }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Submit -->
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg me-2"></i>{% if task %}Saqlash{% else %}Yaratish{% endif %}
-                </button>
-                <a href="{% url 'tasks:task_list' %}" class="btn btn-light">
-                    <i class="bi bi-x-lg me-2"></i>Bekor qilish
-                </a>
-            </div>
-        </form>
-    </div>
-
-    <!-- Sidebar -->
-    <div class="col-lg-4">
-        <div class="table-card">
-            <div class="card-header">
-                <i class="bi bi-lightbulb me-2"></i>Yordam
-            </div>
-            <div class="card-body">
-                <h6>Savol turlari:</h6>
-                <ul class="small text-muted">
-                    <li><strong>Matn</strong> — erkin javob yozish</li>
-                    <li><strong>Raqam</strong> — faqat son kiritish</li>
-                    <li><strong>Tanlov</strong> — variantlardan birini tanlash</li>
-                    <li><strong>Ha/Yo'q</strong> — ikki tugma</li>
-                    <li><strong>Sana</strong> — kalendar tanlash</li>
-                    <li><strong>Telefon</strong> — +998 formatda</li>
-                </ul>
-
-                <hr>
-
-                <h6>Maslahatlar:</h6>
-                <ul class="small text-muted">
-                    <li>Savollarni qisqa va aniq yozing</li>
-                    <li>Muhim savollarni birinchi qo'ying</li>
-                    <li>Muddat real bo'lsin</li>
-                </ul>
             </div>
         </div>
-    </div>
+    </form>
 </div>
+
+<style>
+.task-type-card {
+    padding: 0;
+}
+
+.task-type-card .form-check-input {
+    display: none;
+}
+
+.task-type-label {
+    display: block;
+    padding: 20px 15px;
+    text-align: center;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.task-type-label:hover {
+    border-color: var(--primary-color);
+    background: rgba(76, 175, 80, 0.05);
+}
+
+.task-type-card .form-check-input:checked + .task-type-label {
+    border-color: var(--primary-color);
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.task-type-icon {
+    font-size: 28px;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+}
+
+.task-type-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.task-type-card .form-check-input:disabled + .task-type-label {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // Savol qo'shish
-    let questionCount = document.querySelectorAll('.question-item').length;
+document.addEventListener('DOMContentLoaded', function() {
+    const typeInputs = document.querySelectorAll('input[name="type"]');
+    const tableSection = document.getElementById('tableSection');
+    const surveySection = document.getElementById('surveySection');
+    const reportSection = document.getElementById('reportSection');
+    const fileSection = document.getElementById('fileSection');
 
+    // Type switch
+    function updateSections() {
+        const selectedType = document.querySelector('input[name="type"]:checked').value;
+
+        tableSection.style.display = selectedType === 'table' ? 'block' : 'none';
+        surveySection.style.display = selectedType === 'survey' ? 'block' : 'none';
+        reportSection.style.display = selectedType === 'report' ? 'block' : 'none';
+        fileSection.style.display = selectedType === 'file' ? 'block' : 'none';
+    }
+
+    typeInputs.forEach(input => {
+        input.addEventListener('change', updateSections);
+    });
+
+    updateSections();
+
+    // Target all toggle
+    const targetAll = document.getElementById('target_all');
+    const targetFilters = document.getElementById('targetFilters');
+
+    targetAll.addEventListener('change', function() {
+        targetFilters.style.display = this.checked ? 'none' : 'block';
+    });
+
+    // Add column
+    document.getElementById('addColumn').addEventListener('click', function() {
+        const container = document.getElementById('columnsContainer');
+        const html = `
+            <div class="column-row d-flex gap-3 mb-3 align-items-center">
+                <div class="flex-grow-1">
+                    <input type="text" name="column_title[]" class="form-control" placeholder="Ustun nomi">
+                </div>
+                <div style="width: 180px;">
+                    <select name="column_type[]" class="form-select">
+                        {% for dt_value, dt_label in column_type_choices %}
+                        <option value="{{ dt_value }}">{{ dt_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="button" class="btn btn-icon btn-danger btn-sm remove-column">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    });
+
+    // Remove column
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-column')) {
+            const rows = document.querySelectorAll('.column-row');
+            if (rows.length > 1) {
+                e.target.closest('.column-row').remove();
+            }
+        }
+    });
+
+    // Add question
     document.getElementById('addQuestion').addEventListener('click', function() {
-        questionCount++;
         const container = document.getElementById('questionsContainer');
         const html = `
-            <div class="question-item border rounded p-3 mb-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <span class="badge bg-secondary">Savol ${questionCount}</span>
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-question">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-                <div class="row">
-                    <div class="col-md-8 mb-2">
-                        <input type="text" name="question_text[]" class="form-control" placeholder="Savol matni" required>
+            <div class="question-row mb-3 p-3 bg-light rounded-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="flex-grow-1">
+                        <textarea name="question_text[]" class="form-control mb-2" rows="2" placeholder="Savol matni"></textarea>
                     </div>
-                    <div class="col-md-4 mb-2">
+                    <div style="width: 160px;">
                         <select name="question_type[]" class="form-select">
-                            {% for value, label in question_type_choices %}
-                            <option value="{{ value }}">{{ label }}</option>
+                            {% for qt_value, qt_label in question_type_choices %}
+                            <option value="{{ qt_value }}">{{ qt_label }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    <button type="button" class="btn btn-icon btn-danger btn-sm remove-question">
+                        <i class="bi bi-trash"></i>
+                    </button>
                 </div>
             </div>
         `;
         container.insertAdjacentHTML('beforeend', html);
     });
 
-    // Savol o'chirish
+    // Remove question
     document.addEventListener('click', function(e) {
         if (e.target.closest('.remove-question')) {
-            const items = document.querySelectorAll('.question-item');
-            if (items.length > 1) {
-                e.target.closest('.question-item').remove();
-                // Raqamlarni yangilash
-                document.querySelectorAll('.question-item').forEach((item, index) => {
-                    item.querySelector('.badge').textContent = `Savol ${index + 1}`;
-                });
-                questionCount = document.querySelectorAll('.question-item').length;
-            } else {
-                alert('Kamida 1 ta savol bo\'lishi kerak!');
+            const rows = document.querySelectorAll('.question-row');
+            if (rows.length > 1) {
+                e.target.closest('.question-row').remove();
             }
         }
     });
 
-    // Viloyat-tuman bog'lanishi
-    document.getElementById('regionSelect').addEventListener('change', function() {
+    // Region - District cascade
+    const regionSelect = document.getElementById('regionSelect');
+    const districtSelect = document.getElementById('districtSelect');
+
+    regionSelect.addEventListener('change', function() {
         const regionId = this.value;
-        const districtSelect = document.getElementById('districtSelect');
-
-        districtSelect.innerHTML = '<option value="">Barcha tumanlar</option>';
-
         if (regionId) {
-            // AJAX bilan tumanlarni olish (keyinroq qo'shamiz)
-            // Hozircha placeholder
+            fetch(`/api/districts/?region=${regionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    districtSelect.innerHTML = '<option value="">Tanlang...</option>';
+                    data.forEach(district => {
+                        districtSelect.innerHTML += `<option value="${district.id}">${district.name}</option>`;
+                    });
+                });
+        } else {
+            districtSelect.innerHTML = '<option value="">Tanlang...</option>';
         }
     });
+});
 </script>
 {% endblock %}

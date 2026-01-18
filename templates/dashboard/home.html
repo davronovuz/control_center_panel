@@ -1,193 +1,228 @@
 {% extends 'base.html' %}
 
-{% block title %}Bosh sahifa — Hermes{% endblock %}
-{% block page_title %}Bosh sahifa{% endblock %}
+{% block title %}Dashboard | HERMES{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<!-- Stats Row -->
-<div class="row g-4 mb-4">
-    <div class="col-md-6 col-lg-3">
-        <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="number">{{ stats.active_tasks }}</div>
-                    <div class="label">Faol vazifalar</div>
+<div class="fade-in">
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="stat-card primary">
+                <div class="stat-icon">
+                    <i class="bi bi-people-fill"></i>
                 </div>
-                <div class="icon primary">
+                <div class="stat-value">{{ total_leaders }}</div>
+                <div class="stat-label">Jami yetakchilar</div>
+                <div class="stat-change up">
+                    <i class="bi bi-arrow-up"></i>
+                    <span>Faol hisoblar</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="stat-card info">
+                <div class="stat-icon">
                     <i class="bi bi-list-task"></i>
                 </div>
+                <div class="stat-value">{{ active_tasks }}</div>
+                <div class="stat-label">Faol vazifalar</div>
+                <div class="stat-change up">
+                    <i class="bi bi-plus"></i>
+                    <span>{{ new_tasks_week }} ta yangi (7 kun)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="stat-card warning">
+                <div class="stat-icon">
+                    <i class="bi bi-check2-all"></i>
+                </div>
+                <div class="stat-value">{{ completed_week }}</div>
+                <div class="stat-label">Bajarilgan (7 kun)</div>
+                <div class="stat-change up">
+                    <i class="bi bi-graph-up"></i>
+                    <span>O'sish tendensiyasi</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="stat-card danger">
+                <div class="stat-icon">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+                <div class="stat-value">{{ overdue_count }}</div>
+                <div class="stat-label">Muddati o'tgan</div>
+                <div class="stat-change">
+                    <i class="bi bi-arrow-right"></i>
+                    <span>Diqqat talab etadi</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="col-md-6 col-lg-3">
-        <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="number">{{ stats.completed_tasks }}</div>
-                    <div class="label">Yakunlangan</div>
+    <div class="row g-4">
+        <!-- Active Tasks -->
+        <div class="col-12 col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-list-task me-2 text-primary"></i>
+                        Faol vazifalar
+                    </h5>
+                    <a href="{% url 'tasks:task_list' %}" class="btn btn-sm btn-outline-primary">
+                        Barchasi <i class="bi bi-arrow-right"></i>
+                    </a>
                 </div>
-                <div class="icon success">
-                    <i class="bi bi-check-circle"></i>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Vazifa</th>
+                                    <th>Turi</th>
+                                    <th>Muddat</th>
+                                    <th>Bajarilish</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in active_tasks_list %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">{{ task.title }}</div>
+                                        <small class="text-muted">{{ task.total_assigned }} ta yetakchi</small>
+                                    </td>
+                                    <td>
+                                        {% if task.type == 'table' %}
+                                        <span class="badge badge-info">📊 Jadval</span>
+                                        {% elif task.type == 'survey' %}
+                                        <span class="badge badge-primary">📋 So'rovnoma</span>
+                                        {% elif task.type == 'report' %}
+                                        <span class="badge badge-warning">📝 Hisobot</span>
+                                        {% elif task.type == 'file' %}
+                                        <span class="badge badge-success">📁 Fayl</span>
+                                        {% else %}
+                                        <span class="badge badge-secondary">🔀 Aralash</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if task.is_overdue %}
+                                        <span class="text-danger fw-semibold">
+                                            <i class="bi bi-exclamation-circle"></i> O'tgan
+                                        </span>
+                                        {% else %}
+                                        <span class="{% if task.time_remaining and 'soat' in task.time_remaining %}text-warning{% else %}text-muted{% endif %}">
+                                            {{ task.deadline|date:"d.m.Y H:i" }}
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="width: 150px;">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height: 8px;">
+                                                <div class="progress-bar" style="width: {{ task.completion_rate }}%"></div>
+                                            </div>
+                                            <span class="small fw-semibold">{{ task.completion_rate }}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-sm btn-icon btn-secondary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="empty-state py-5">
+                                            <div class="empty-state-icon" style="width: 70px; height: 70px; font-size: 28px;">
+                                                <i class="bi bi-list-task"></i>
+                                            </div>
+                                            <div class="empty-state-title">Faol vazifa yo'q</div>
+                                            <a href="{% url 'tasks:task_create' %}" class="btn btn-primary btn-sm mt-2">
+                                                <i class="bi bi-plus-lg"></i> Vazifa yaratish
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="col-md-6 col-lg-3">
-        <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="number">{{ stats.active_leaders }}</div>
-                    <div class="label">Faol yetakchilar</div>
+        <!-- Recent Activity -->
+        <div class="col-12 col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-activity me-2 text-success"></i>
+                        Oxirgi faollik
+                    </h5>
                 </div>
-                <div class="icon warning">
-                    <i class="bi bi-people"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-3">
-        <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="number text-danger">{{ overdue_tasks }}</div>
-                    <div class="label">Muddati o'tgan</div>
-                </div>
-                <div class="icon danger">
-                    <i class="bi bi-exclamation-triangle"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-4">
-    <!-- Faol vazifalar -->
-    <div class="col-lg-6">
-        <div class="table-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-clock me-2"></i>Faol vazifalar</span>
-                <a href="{% url 'tasks:task_list' %}?status=active" class="btn btn-sm btn-outline-primary">Barchasi</a>
-            </div>
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Vazifa</th>
-                            <th>Muddat</th>
-                            <th>Bajarilish</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for task in active_tasks %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'tasks:task_detail' task.pk %}" class="text-decoration-none">
-                                    {{ task.title|truncatechars:30 }}
-                                </a>
-                            </td>
-                            <td>
-                                {% if task.is_overdue %}
-                                <span class="text-danger">
-                                    <i class="bi bi-exclamation-circle"></i>
-                                    {{ task.deadline|date:"d.m.Y" }}
-                                </span>
-                                {% else %}
-                                {{ task.deadline|date:"d.m.Y H:i" }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="progress flex-grow-1" style="width: 80px;">
-                                        <div class="progress-bar bg-success" style="width: {{ task.stats_completion_rate }}%"></div>
-                                    </div>
-                                    <small>{{ task.stats_completion_rate|floatformat:0 }}%</small>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="3" class="text-center text-muted py-4">
-                                Faol vazifalar yo'q
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Oxirgi tayinlashlar -->
-    <div class="col-lg-6">
-        <div class="table-card">
-            <div class="card-header">
-                <i class="bi bi-arrow-repeat me-2"></i>Oxirgi faoliyat
-            </div>
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Yetakchi</th>
-                            <th>Vazifa</th>
-                            <th>Holat</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                <div class="card-body p-0">
+                    <div class="activity-list">
                         {% for assignment in recent_assignments %}
-                        <tr>
-                            <td>{{ assignment.leader.get_full_name|default:assignment.leader.username }}</td>
-                            <td>
-                                <a href="{% url 'tasks:task_detail' assignment.task.pk %}" class="text-decoration-none">
-                                    {{ assignment.task.title|truncatechars:25 }}
-                                </a>
-                            </td>
-                            <td>
-                                <span class="badge-status badge-{{ assignment.status }}">
-                                    {{ assignment.get_status_display }}
-                                </span>
-                            </td>
-                        </tr>
+                        <div class="activity-item d-flex align-items-start gap-3 p-3 border-bottom">
+                            <div class="activity-avatar">
+                                <div class="profile-avatar" style="width: 42px; height: 42px; font-size: 13px;">
+                                    {{ assignment.leader.first_name|slice:":1" }}{{ assignment.leader.last_name|slice:":1" }}
+                                </div>
+                            </div>
+                            <div class="activity-content flex-grow-1">
+                                <div class="fw-semibold">{{ assignment.leader.get_full_name }}</div>
+                                <div class="small text-muted">
+                                    {% if assignment.status == 'submitted' %}
+                                    <span class="text-primary"><i class="bi bi-check-circle"></i> yubordi</span>
+                                    {% elif assignment.status == 'in_progress' %}
+                                    <span class="text-warning"><i class="bi bi-pencil"></i> boshladi</span>
+                                    {% elif assignment.status == 'approved' %}
+                                    <span class="text-success"><i class="bi bi-check2-all"></i> tasdiqlandi</span>
+                                    {% else %}
+                                    <span><i class="bi bi-eye"></i> ko'rdi</span>
+                                    {% endif %}
+                                    — {{ assignment.task.title|truncatechars:25 }}
+                                </div>
+                                <small class="text-muted">{{ assignment.updated_at|timesince }} oldin</small>
+                            </div>
+                        </div>
                         {% empty %}
-                        <tr>
-                            <td colspan="3" class="text-center text-muted py-4">
-                                Faoliyat yo'q
-                            </td>
-                        </tr>
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-clock-history fs-1 mb-2 d-block"></i>
+                            Faollik yo'q
+                        </div>
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Bajarilish statistikasi -->
-<div class="row g-4 mt-2">
-    <div class="col-12">
-        <div class="table-card">
-            <div class="card-header">
-                <i class="bi bi-pie-chart me-2"></i>Tayinlashlar holati
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col">
-                        <div class="h3 mb-0">{{ assignment_stats.pending }}</div>
-                        <small class="text-muted">Yuborildi</small>
-                    </div>
-                    <div class="col">
-                        <div class="h3 mb-0 text-info">{{ assignment_stats.seen }}</div>
-                        <small class="text-muted">Ko'rdi</small>
-                    </div>
-                    <div class="col">
-                        <div class="h3 mb-0 text-warning">{{ assignment_stats.in_progress }}</div>
-                        <small class="text-muted">Jarayonda</small>
-                    </div>
-                    <div class="col">
-                        <div class="h3 mb-0 text-success">{{ assignment_stats.completed }}</div>
-                        <small class="text-muted">Bajarildi</small>
+    <!-- Quick Actions -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Tezkor harakatlar</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-lg"></i> Yangi vazifa
+                        </a>
+                        <a href="{% url 'accounts:leader_create' %}" class="btn btn-success">
+                            <i class="bi bi-person-plus"></i> Yetakchi qo'shish
+                        </a>
+                        <a href="{% url 'tasks:task_list' %}?status=active" class="btn btn-info">
+                            <i class="bi bi-list-task"></i> Faol vazifalar
+                        </a>
+                        <a href="{% url 'dashboard:statistics' %}" class="btn btn-warning">
+                            <i class="bi bi-bar-chart"></i> Statistika
+                        </a>
                     </div>
                 </div>
             </div>

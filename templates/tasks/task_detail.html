@@ -1,276 +1,342 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ task.title }} — Hermes{% endblock %}
+{% block title %}{{ task.title }} | HERMES{% endblock %}
+
 {% block page_title %}Vazifa tafsilotlari{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="d-flex justify-content-between align-items-start mb-4">
-    <div>
-        <h4 class="mb-1">{{ task.title }}</h4>
-        <div class="d-flex gap-2 align-items-center">
-            <span class="badge-status badge-{{ task.status }}">{{ task.get_status_display }}</span>
-            <span class="badge-status badge-{{ task.priority }}">{{ task.get_priority_display }}</span>
-            <span class="text-muted">•</span>
-            <small class="text-muted">Yaratilgan: {{ task.created_at|date:"d.m.Y H:i" }}</small>
+<div class="fade-in">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-header-title">{{ task.title }}</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tasks:task_list' %}">Vazifalar</a></li>
+                    <li class="breadcrumb-item active">{{ task.title|truncatechars:30 }}</li>
+                </ol>
+            </nav>
         </div>
-    </div>
-    <div class="d-flex gap-2">
-        {% if task.status == 'draft' %}
-        <a href="{% url 'tasks:task_edit' task.pk %}" class="btn btn-light">
-            <i class="bi bi-pencil me-1"></i>Tahrirlash
-        </a>
-        <a href="{% url 'tasks:task_publish' task.pk %}" class="btn btn-success">
-            <i class="bi bi-send me-1"></i>E'lon qilish
-        </a>
-        {% endif %}
-        {% if task.status == 'active' or task.status == 'completed' %}
-        <a href="{% url 'tasks:task_results' task.pk %}" class="btn btn-light">
-            <i class="bi bi-table me-1"></i>Natijalar
-        </a>
-        <a href="{% url 'tasks:task_export' task.pk %}" class="btn btn-success">
-            <i class="bi bi-download me-1"></i>Excel
-        </a>
-        {% endif %}
-    </div>
-</div>
-
-<div class="row">
-    <!-- Asosiy ma'lumot -->
-    <div class="col-lg-8">
-        <!-- Statistika -->
-        <div class="row g-3 mb-4">
-            <div class="col-6 col-md-3">
-                <div class="stat-card text-center py-3">
-                    <div class="number">{{ stats.total }}</div>
-                    <div class="label">Jami</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card text-center py-3">
-                    <div class="number text-info">{{ stats.seen }}</div>
-                    <div class="label">Ko'rdi</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card text-center py-3">
-                    <div class="number text-warning">{{ stats.in_progress }}</div>
-                    <div class="label">Jarayonda</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card text-center py-3">
-                    <div class="number text-success">{{ stats.completed }}</div>
-                    <div class="label">Bajarildi</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tavsif -->
-        {% if task.description %}
-        <div class="table-card mb-4">
-            <div class="card-header">
-                <i class="bi bi-text-paragraph me-2"></i>Tavsif
-            </div>
-            <div class="card-body">
-                {{ task.description|linebreaks }}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Savollar -->
-        <div class="table-card mb-4">
-            <div class="card-header">
-                <i class="bi bi-question-circle me-2"></i>Savollar ({{ questions|length }})
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
-                    {% for question in questions %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="badge bg-secondary me-2">{{ question.order }}</span>
-                            {{ question.text }}
-                        </div>
-                        <span class="badge bg-light text-dark">{{ question.get_question_type_display }}</span>
-                    </li>
-                    {% empty %}
-                    <li class="list-group-item text-center text-muted py-4">
-                        Savollar yo'q
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-
-        <!-- Yetakchilar ro'yxati -->
-        <div class="table-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-people me-2"></i>Yetakchilar</span>
-                {% if stats.pending > 0 %}
-                <button class="btn btn-sm btn-warning">
-                    <i class="bi bi-bell me-1"></i>Eslatma yuborish ({{ stats.pending }})
-                </button>
-                {% endif %}
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Yetakchi</th>
-                            <th>Mahalla</th>
-                            <th>Holat</th>
-                            <th>Jarayon</th>
-                            <th>Vaqt</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for assignment in assignments %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'accounts:leader_detail' assignment.leader.pk %}" class="text-decoration-none">
-                                    {{ assignment.leader.get_full_name|default:assignment.leader.username }}
-                                </a>
-                            </td>
-                            <td>{{ assignment.leader.mahalla|default:"-" }}</td>
-                            <td>
-                                <span class="badge-status badge-{{ assignment.status }}">
-                                    {{ assignment.get_status_display }}
-                                </span>
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="progress" style="width: 60px; height: 6px;">
-                                        <div class="progress-bar bg-success" style="width: {{ assignment.progress_percent }}%"></div>
-                                    </div>
-                                    <small>{{ assignment.progress_percent }}%</small>
-                                </div>
-                            </td>
-                            <td>
-                                {% if assignment.completed_at %}
-                                <small class="text-success">{{ assignment.completed_at|date:"d.m.Y H:i" }}</small>
-                                {% elif assignment.started_at %}
-                                <small class="text-warning">{{ assignment.started_at|date:"d.m.Y H:i" }}</small>
-                                {% else %}
-                                <small class="text-muted">{{ assignment.sent_at|date:"d.m.Y H:i" }}</small>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">
-                                Yetakchilar tayinlanmagan
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            {% if assignments.has_other_pages %}
-            <div class="card-footer bg-white">
-                <nav>
-                    <ul class="pagination pagination-sm justify-content-center mb-0">
-                        {% if assignments.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ assignments.previous_page_number }}">
-                                <i class="bi bi-chevron-left"></i>
-                            </a>
-                        </li>
-                        {% endif %}
-
-                        <li class="page-item active">
-                            <span class="page-link">{{ assignments.number }} / {{ assignments.paginator.num_pages }}</span>
-                        </li>
-
-                        {% if assignments.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ assignments.next_page_number }}">
-                                <i class="bi bi-chevron-right"></i>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-            </div>
+        <div class="d-flex gap-2">
+            {% if task.status == 'draft' %}
+            <a href="{% url 'tasks:task_edit' task.pk %}" class="btn btn-secondary">
+                <i class="bi bi-pencil"></i> Tahrirlash
+            </a>
+            <a href="{% url 'tasks:task_publish' task.pk %}" class="btn btn-success">
+                <i class="bi bi-send"></i> E'lon qilish
+            </a>
+            {% elif task.status == 'active' %}
+            <a href="{% url 'tasks:task_results' task.pk %}" class="btn btn-info">
+                <i class="bi bi-bar-chart"></i> Natijalar
+            </a>
+            <a href="{% url 'tasks:task_export' task.pk %}" class="btn btn-success">
+                <i class="bi bi-download"></i> Excel
+            </a>
             {% endif %}
         </div>
     </div>
 
-    <!-- Sidebar -->
-    <div class="col-lg-4">
-        <!-- Ma'lumot -->
-        <div class="table-card mb-4">
-            <div class="card-header">
-                <i class="bi bi-info-circle me-2"></i>Ma'lumot
-            </div>
-            <div class="card-body">
-                <table class="table table-sm table-borderless mb-0">
-                    <tr>
-                        <td class="text-muted">Muddat:</td>
-                        <td class="text-end">
-                            {% if task.is_overdue %}
-                            <span class="text-danger fw-bold">{{ task.deadline|date:"d.m.Y H:i" }}</span>
+    <div class="row g-4">
+        <!-- Task Info -->
+        <div class="col-12 col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Ma'lumotlar</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            {% if task.status == 'draft' %}
+                            <span class="badge badge-secondary fs-6">Qoralama</span>
+                            {% elif task.status == 'active' %}
+                            <span class="badge badge-success fs-6">Faol</span>
+                            {% elif task.status == 'completed' %}
+                            <span class="badge badge-info fs-6">Yakunlangan</span>
                             {% else %}
-                            {{ task.deadline|date:"d.m.Y H:i" }}
+                            <span class="badge badge-secondary fs-6">{{ task.get_status_display }}</span>
                             {% endif %}
-                        </td>
-                    </tr>
-                    {% if task.time_remaining %}
-                    <tr>
-                        <td class="text-muted">Qoldi:</td>
-                        <td class="text-end">{{ task.time_remaining }}</td>
-                    </tr>
-                    {% endif %}
-                    <tr>
-                        <td class="text-muted">Turi:</td>
-                        <td class="text-end">{{ task.get_task_type_display }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-muted">Viloyat:</td>
-                        <td class="text-end">{{ task.target_region|default:"Barchasi" }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-muted">Tuman:</td>
-                        <td class="text-end">{{ task.target_district|default:"Barchasi" }}</td>
-                    </tr>
-                    <tr>
-                        <td class="text-muted">Yaratuvchi:</td>
-                        <td class="text-end">{{ task.created_by }}</td>
-                    </tr>
-                </table>
+
+                            {% if task.priority == 'urgent' %}
+                            <span class="badge badge-danger fs-6">Shoshilinch</span>
+                            {% elif task.priority == 'high' %}
+                            <span class="badge badge-warning fs-6">Yuqori</span>
+                            {% endif %}
+                        </div>
+
+                        {% if task.description %}
+                        <p class="text-muted">{{ task.description }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="info-list">
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Turi</span>
+                            <span class="fw-semibold">
+                                {% if task.type == 'table' %}📊 Jadval
+                                {% elif task.type == 'survey' %}📋 So'rovnoma
+                                {% elif task.type == 'report' %}📝 Hisobot
+                                {% elif task.type == 'file' %}📁 Fayl
+                                {% else %}🔀 Aralash{% endif %}
+                            </span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Muddat</span>
+                            <span class="fw-semibold {% if task.is_overdue %}text-danger{% endif %}">
+                                {{ task.deadline|date:"d.m.Y H:i" }}
+                            </span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Qolgan vaqt</span>
+                            <span class="{% if task.is_overdue %}text-danger{% else %}text-success{% endif %} fw-semibold">
+                                {{ task.time_remaining|default:"—" }}
+                            </span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-muted">Yaratuvchi</span>
+                            <span class="fw-semibold">{{ task.created_by.get_full_name|default:"—" }}</span>
+                        </div>
+                        <div class="info-item d-flex justify-content-between py-2">
+                            <span class="text-muted">Yaratilgan</span>
+                            <span>{{ task.created_at|date:"d.m.Y H:i" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Card -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title">Statistika</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span>Bajarilish</span>
+                        <span class="fw-bold fs-5 text-primary">{{ task.completion_rate }}%</span>
+                    </div>
+                    <div class="progress mb-4" style="height: 10px;">
+                        <div class="progress-bar" style="width: {{ task.completion_rate }}%"></div>
+                    </div>
+
+                    <div class="row g-3 text-center">
+                        <div class="col-6">
+                            <div class="p-3 rounded-3 bg-light">
+                                <div class="fs-4 fw-bold text-primary">{{ stats.total }}</div>
+                                <small class="text-muted">Jami</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 rounded-3 bg-light">
+                                <div class="fs-4 fw-bold text-warning">{{ stats.pending }}</div>
+                                <small class="text-muted">Kutilmoqda</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 rounded-3 bg-light">
+                                <div class="fs-4 fw-bold text-info">{{ stats.in_progress }}</div>
+                                <small class="text-muted">Jarayonda</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 rounded-3 bg-light">
+                                <div class="fs-4 fw-bold text-success">{{ stats.submitted }}</div>
+                                <small class="text-muted">Yuborilgan</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Bajarilish -->
-        <div class="table-card">
-            <div class="card-header">
-                <i class="bi bi-pie-chart me-2"></i>Bajarilish
+        <!-- Assignments -->
+        <div class="col-12 col-lg-8">
+            <!-- Columns/Questions -->
+            {% if columns %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title"><i class="bi bi-table me-2"></i>Jadval ustunlari</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Ustun nomi</th>
+                                    <th>Turi</th>
+                                    <th>Majburiy</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for col in columns %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td class="fw-semibold">{{ col.title }}</td>
+                                    <td><span class="badge badge-info">{{ col.get_data_type_display }}</span></td>
+                                    <td>
+                                        {% if col.required %}
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        {% else %}
+                                        <i class="bi bi-dash text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="text-center mb-3">
-                    <div class="display-4 fw-bold text-success">{{ task.stats_completion_rate|floatformat:0 }}%</div>
-                    <small class="text-muted">{{ stats.completed }} / {{ stats.total }} bajarildi</small>
+            {% endif %}
+
+            {% if questions %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title"><i class="bi bi-ui-checks me-2"></i>Savollar</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Savol</th>
+                                    <th>Javob turi</th>
+                                    <th>Majburiy</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for q in questions %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ q.text|truncatechars:50 }}</td>
+                                    <td><span class="badge badge-primary">{{ q.get_answer_type_display }}</span></td>
+                                    <td>
+                                        {% if q.required %}
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        {% else %}
+                                        <i class="bi bi-dash text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Assignments Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title"><i class="bi bi-people me-2"></i>Tayinlangan yetakchilar</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Yetakchi</th>
+                                    <th>Mahalla</th>
+                                    <th>Holat</th>
+                                    <th>Jarayon</th>
+                                    <th>Yuborilgan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assignment in assignments %}
+                                <tr>
+                                    <td>
+                                        <div class="table-user">
+                                            <div class="table-user-avatar">
+                                                {{ assignment.leader.first_name|slice:":1" }}{{ assignment.leader.last_name|slice:":1" }}
+                                            </div>
+                                            <div>
+                                                <div class="table-user-name">{{ assignment.leader.get_full_name }}</div>
+                                                <div class="table-user-email">{{ assignment.leader.phone|default:"—" }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>{{ assignment.leader.mahalla|default:"—" }}</div>
+                                        <small class="text-muted">{{ assignment.leader.district|default:"" }}</small>
+                                    </td>
+                                    <td>
+                                        {% if assignment.status == 'pending' %}
+                                        <span class="badge badge-secondary">Kutilmoqda</span>
+                                        {% elif assignment.status == 'viewed' %}
+                                        <span class="badge badge-info">Ko'rildi</span>
+                                        {% elif assignment.status == 'in_progress' %}
+                                        <span class="badge badge-warning">Jarayonda</span>
+                                        {% elif assignment.status == 'submitted' %}
+                                        <span class="badge badge-primary">Yuborildi</span>
+                                        {% elif assignment.status == 'approved' %}
+                                        <span class="badge badge-success">Tasdiqlandi</span>
+                                        {% elif assignment.status == 'rejected' %}
+                                        <span class="badge badge-danger">Rad etildi</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="width: 120px;">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height: 6px;">
+                                                <div class="progress-bar" style="width: {{ assignment.progress }}%"></div>
+                                            </div>
+                                            <small>{{ assignment.progress }}%</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if assignment.submitted_at %}
+                                        {{ assignment.submitted_at|date:"d.m.Y H:i" }}
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5 text-muted">
+                                        <i class="bi bi-people fs-1 d-block mb-2"></i>
+                                        Hali yetakchilar tayinlanmagan
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <div class="progress mb-3" style="height: 10px;">
-                    <div class="progress-bar bg-success" style="width: {{ task.stats_completion_rate }}%"></div>
-                </div>
+                {% if assignments.has_other_pages %}
+                <div class="card-footer">
+                    <nav>
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            {% if assignments.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ assignments.previous_page_number }}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
 
-                <div class="row text-center small">
-                    <div class="col">
-                        <div class="text-muted">Kutmoqda</div>
-                        <div class="fw-bold">{{ stats.pending }}</div>
-                    </div>
-                    <div class="col">
-                        <div class="text-muted">Ko'rdi</div>
-                        <div class="fw-bold text-info">{{ stats.seen }}</div>
-                    </div>
-                    <div class="col">
-                        <div class="text-muted">Jarayonda</div>
-                        <div class="fw-bold text-warning">{{ stats.in_progress }}</div>
-                    </div>
+                            {% for num in assignments.paginator.page_range %}
+                                {% if assignments.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > assignments.number|add:'-3' and num < assignments.number|add:'3' %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if assignments.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ assignments.next_page_number }}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>

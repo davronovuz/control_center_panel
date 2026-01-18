@@ -1,211 +1,288 @@
 {% extends 'base.html' %}
 
-{% block title %}Vazifalar — Hermes{% endblock %}
+{% block title %}Vazifalar | HERMES{% endblock %}
+
 {% block page_title %}Vazifalar{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <span class="text-muted">Jami: {{ tasks.paginator.count }} ta vazifa</span>
+<div class="fade-in">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-header-title">Vazifalar</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Vazifalar</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Yangi vazifa
+        </a>
     </div>
-    <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-2"></i>Yangi vazifa
-    </a>
-</div>
 
-<!-- Filters -->
-<div class="table-card mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Holat</label>
-                <select name="status" class="form-select">
-                    <option value="">Barchasi</option>
-                    {% for value, label in status_choices %}
-                    <option value="{{ value }}" {% if current_filters.status == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Muhimlik</label>
-                <select name="priority" class="form-select">
-                    <option value="">Barchasi</option>
-                    {% for value, label in priority_choices %}
-                    <option value="{{ value }}" {% if current_filters.priority == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Qidirish</label>
-                <input type="text" name="search" class="form-control" placeholder="Vazifa nomi..." value="{{ current_filters.search|default:'' }}">
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search me-1"></i>Qidirish
-                </button>
-            </div>
-        </form>
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Qidirish</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" name="search" class="form-control" placeholder="Vazifa nomi..." value="{{ current_filters.search|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Holat</label>
+                    <select name="status" class="form-select">
+                        <option value="">Barchasi</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if current_filters.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Muhimlik</label>
+                    <select name="priority" class="form-select">
+                        <option value="">Barchasi</option>
+                        {% for value, label in priority_choices %}
+                        <option value="{{ value }}" {% if current_filters.priority == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Turi</label>
+                    <select name="type" class="form-select">
+                        <option value="">Barchasi</option>
+                        {% for value, label in type_choices %}
+                        <option value="{{ value }}" {% if current_filters.type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel"></i> Filtrlash
+                    </button>
+                    <a href="{% url 'tasks:task_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
-<!-- Tasks Table -->
-<div class="table-card">
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Vazifa</th>
-                    <th>Turi</th>
-                    <th>Holat</th>
-                    <th>Muhimlik</th>
-                    <th>Muddat</th>
-                    <th>Bajarilish</th>
-                    <th>Amallar</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for task in tasks %}
-                <tr>
-                    <td>
-                        <a href="{% url 'tasks:task_detail' task.pk %}" class="text-decoration-none fw-medium">
-                            {{ task.title }}
-                        </a>
-                        <div class="small text-muted">{{ task.questions_count }} ta savol</div>
-                    </td>
-                    <td>
-                        {% if task.task_type == 'survey' %}
-                        <span class="text-primary"><i class="bi bi-clipboard-data me-1"></i>So'rovnoma</span>
-                        {% elif task.task_type == 'excel' %}
-                        <span class="text-success"><i class="bi bi-file-earmark-excel me-1"></i>Excel</span>
-                        {% elif task.task_type == 'report' %}
-                        <span class="text-info"><i class="bi bi-file-text me-1"></i>Hisobot</span>
-                        {% else %}
-                        <span class="text-secondary"><i class="bi bi-shuffle me-1"></i>Aralash</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <span class="badge-status badge-{{ task.status }}">
-                            {{ task.get_status_display }}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge-status badge-{{ task.priority }}">
-                            {{ task.get_priority_display }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if task.is_overdue %}
-                        <span class="text-danger">
-                            <i class="bi bi-exclamation-circle me-1"></i>
-                            {{ task.deadline|date:"d.m.Y" }}
-                        </span>
-                        {% else %}
-                        {{ task.deadline|date:"d.m.Y H:i" }}
-                        <div class="small text-muted">{{ task.time_remaining }}</div>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="progress" style="width: 80px; height: 6px;">
-                                <div class="progress-bar bg-success" style="width: {{ task.stats_completion_rate }}%"></div>
-                            </div>
-                            <small>{{ task.stats_total_completed }}/{{ task.stats_total_assigned }}</small>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-light" data-bs-toggle="dropdown">
-                                <i class="bi bi-three-dots-vertical"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'tasks:task_detail' task.pk %}">
-                                        <i class="bi bi-eye me-2"></i>Ko'rish
-                                    </a>
-                                </li>
+    <!-- Tasks Table -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Vazifa</th>
+                            <th>Turi</th>
+                            <th>Holat</th>
+                            <th>Muhimlik</th>
+                            <th>Muddat</th>
+                            <th>Bajarilish</th>
+                            <th class="text-end">Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="task-icon d-flex align-items-center justify-content-center rounded-3"
+                                         style="width: 45px; height: 45px; background: {% if task.type == 'table' %}rgba(33, 150, 243, 0.1){% elif task.type == 'survey' %}rgba(156, 39, 176, 0.1){% elif task.type == 'report' %}rgba(255, 152, 0, 0.1){% else %}rgba(76, 175, 80, 0.1){% endif %};">
+                                        {% if task.type == 'table' %}
+                                        <i class="bi bi-table text-info fs-5"></i>
+                                        {% elif task.type == 'survey' %}
+                                        <i class="bi bi-ui-checks text-purple fs-5"></i>
+                                        {% elif task.type == 'report' %}
+                                        <i class="bi bi-file-text text-warning fs-5"></i>
+                                        {% elif task.type == 'file' %}
+                                        <i class="bi bi-file-earmark-arrow-up text-success fs-5"></i>
+                                        {% else %}
+                                        <i class="bi bi-collection text-secondary fs-5"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <a href="{% url 'tasks:task_detail' task.pk %}" class="fw-semibold text-decoration-none text-dark">
+                                            {{ task.title }}
+                                        </a>
+                                        <div class="small text-muted">
+                                            {{ task.total_assigned }} yetakchi
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if task.type == 'table' %}
+                                <span class="badge badge-info">Jadval</span>
+                                {% elif task.type == 'survey' %}
+                                <span class="badge" style="background: rgba(156, 39, 176, 0.15); color: #9C27B0;">So'rovnoma</span>
+                                {% elif task.type == 'report' %}
+                                <span class="badge badge-warning">Hisobot</span>
+                                {% elif task.type == 'file' %}
+                                <span class="badge badge-success">Fayl</span>
+                                {% else %}
+                                <span class="badge badge-secondary">Aralash</span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 {% if task.status == 'draft' %}
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'tasks:task_edit' task.pk %}">
-                                        <i class="bi bi-pencil me-2"></i>Tahrirlash
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item text-success" href="{% url 'tasks:task_publish' task.pk %}">
-                                        <i class="bi bi-send me-2"></i>E'lon qilish
-                                    </a>
-                                </li>
+                                <span class="badge badge-secondary">Qoralama</span>
+                                {% elif task.status == 'active' %}
+                                <span class="badge badge-success">Faol</span>
+                                {% elif task.status == 'paused' %}
+                                <span class="badge badge-warning">To'xtatilgan</span>
+                                {% elif task.status == 'completed' %}
+                                <span class="badge badge-info">Yakunlangan</span>
+                                {% elif task.status == 'cancelled' %}
+                                <span class="badge badge-danger">Bekor qilingan</span>
+                                {% else %}
+                                <span class="badge badge-secondary">{{ task.get_status_display }}</span>
                                 {% endif %}
-                                {% if task.status == 'active' or task.status == 'completed' %}
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'tasks:task_results' task.pk %}">
-                                        <i class="bi bi-table me-2"></i>Natijalar
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'tasks:task_export' task.pk %}">
-                                        <i class="bi bi-download me-2"></i>Excel yuklash
-                                    </a>
-                                </li>
+                            </td>
+                            <td>
+                                {% if task.priority == 'low' %}
+                                <span class="text-success"><i class="bi bi-arrow-down"></i> Past</span>
+                                {% elif task.priority == 'medium' %}
+                                <span class="text-info"><i class="bi bi-dash"></i> O'rta</span>
+                                {% elif task.priority == 'high' %}
+                                <span class="text-warning"><i class="bi bi-arrow-up"></i> Yuqori</span>
+                                {% elif task.priority == 'urgent' %}
+                                <span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle"></i> Shoshilinch</span>
                                 {% endif %}
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item text-danger" href="{% url 'tasks:task_delete' task.pk %}">
-                                        <i class="bi bi-trash me-2"></i>O'chirish
+                            </td>
+                            <td>
+                                {% if task.is_overdue %}
+                                <span class="text-danger fw-semibold">
+                                    <i class="bi bi-exclamation-circle"></i> O'tgan
+                                </span>
+                                <div class="small text-muted">{{ task.deadline|date:"d.m.Y" }}</div>
+                                {% else %}
+                                <span>{{ task.deadline|date:"d.m.Y" }}</span>
+                                <div class="small text-muted">{{ task.deadline|date:"H:i" }}</div>
+                                {% endif %}
+                            </td>
+                            <td style="width: 130px;">
+                                {% if task.total_assigned > 0 %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 6px;">
+                                        <div class="progress-bar
+                                            {% if task.completion_rate >= 80 %}bg-success
+                                            {% elif task.completion_rate >= 50 %}bg-warning
+                                            {% else %}bg-danger{% endif %}"
+                                            style="width: {{ task.completion_rate }}%">
+                                        </div>
+                                    </div>
+                                    <span class="small fw-semibold" style="min-width: 35px;">{{ task.completion_rate }}%</span>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-icon btn-secondary" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'tasks:task_detail' task.pk %}">
+                                                <i class="bi bi-eye"></i> Ko'rish
+                                            </a>
+                                        </li>
+                                        {% if task.status == 'draft' %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'tasks:task_edit' task.pk %}">
+                                                <i class="bi bi-pencil"></i> Tahrirlash
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item text-success" href="{% url 'tasks:task_publish' task.pk %}">
+                                                <i class="bi bi-send"></i> E'lon qilish
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        {% if task.status == 'active' %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'tasks:task_results' task.pk %}">
+                                                <i class="bi bi-bar-chart"></i> Natijalar
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'tasks:task_export' task.pk %}">
+                                                <i class="bi bi-download"></i> Excel yuklash
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="{% url 'tasks:task_delete' task.pk %}">
+                                                <i class="bi bi-trash"></i> O'chirish
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <i class="bi bi-list-task"></i>
+                                    </div>
+                                    <div class="empty-state-title">Vazifalar topilmadi</div>
+                                    <p class="empty-state-text">Hozircha hech qanday vazifa yo'q yoki filter bo'yicha natija topilmadi.</p>
+                                    <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
+                                        <i class="bi bi-plus-lg"></i> Yangi vazifa yaratish
                                     </a>
-                                </li>
-                            </ul>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="text-center py-5">
-                        <i class="bi bi-inbox text-muted" style="font-size: 48px;"></i>
-                        <p class="text-muted mt-3">Vazifalar topilmadi</p>
-                        <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-2"></i>Yangi vazifa yaratish
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if tasks.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if tasks.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ tasks.previous_page_number }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
                         </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </li>
+                    {% endif %}
+
+                    {% for num in tasks.paginator.page_range %}
+                        {% if tasks.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > tasks.number|add:'-3' and num < tasks.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if tasks.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ tasks.next_page_number }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
     </div>
-
-    <!-- Pagination -->
-    {% if tasks.has_other_pages %}
-    <div class="card-footer bg-white">
-        <nav>
-            <ul class="pagination justify-content-center mb-0">
-                {% if tasks.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ tasks.previous_page_number }}&status={{ current_filters.status|default:'' }}&priority={{ current_filters.priority|default:'' }}&search={{ current_filters.search|default:'' }}">
-                        <i class="bi bi-chevron-left"></i>
-                    </a>
-                </li>
-                {% endif %}
-
-                {% for num in tasks.paginator.page_range %}
-                {% if tasks.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% elif num > tasks.number|add:'-3' and num < tasks.number|add:'3' %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}&status={{ current_filters.status|default:'' }}&priority={{ current_filters.priority|default:'' }}&search={{ current_filters.search|default:'' }}">{{ num }}</a>
-                </li>
-                {% endif %}
-                {% endfor %}
-
-                {% if tasks.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ tasks.next_page_number }}&status={{ current_filters.status|default:'' }}&priority={{ current_filters.priority|default:'' }}&search={{ current_filters.search|default:'' }}">
-                        <i class="bi bi-chevron-right"></i>
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

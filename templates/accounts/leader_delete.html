@@ -1,40 +1,37 @@
 {% extends 'base.html' %}
 
-{% block title %}Yetakchini o'chirish — Hermes{% endblock %}
+{% block title %}Yetakchini o'chirish | HERMES{% endblock %}
+
 {% block page_title %}Yetakchini o'chirish{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6">
-        <div class="table-card">
-            <div class="card-body text-center py-5">
-                <div class="text-danger mb-4">
-                    <i class="bi bi-exclamation-triangle" style="font-size: 64px;"></i>
-                </div>
+<div class="fade-in">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-6 col-lg-5">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-danger bg-opacity-10" style="width: 80px; height: 80px;">
+                            <i class="bi bi-person-x text-danger" style="font-size: 36px;"></i>
+                        </div>
+                    </div>
 
-                <h4 class="mb-3">Yetakchini o'chirishni tasdiqlang</h4>
+                    <h4 class="mb-3">Yetakchini o'chirish</h4>
+                    <p class="text-muted mb-4">
+                        <strong>{{ leader.get_full_name }}</strong> yetakchisini o'chirmoqchimisiz?
+                        <br>Bu amalni ortga qaytarib bo'lmaydi.
+                    </p>
 
-                <div class="bg-light rounded p-3 mb-4">
-                    <div class="fw-bold">{{ leader.get_full_name|default:leader.username }}</div>
-                    <div class="text-muted">{{ leader.phone|default:"Telefon yo'q" }}</div>
-                    <div class="text-muted">{{ leader.mahalla|default:"Mahalla ko'rsatilmagan" }}</div>
-                </div>
-
-                <p class="text-muted mb-4">
-                    Bu amalni ortga qaytarib bo'lmaydi. Yetakchining barcha ma'lumotlari o'chiriladi.
-                </p>
-
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="d-flex justify-content-center gap-3">
-                        <a href="{% url 'accounts:leader_list' %}" class="btn btn-light">
-                            <i class="bi bi-x-lg me-2"></i>Bekor qilish
+                    <form method="POST" class="d-flex gap-2 justify-content-center">
+                        {% csrf_token %}
+                        <a href="{% url 'accounts:leader_detail' leader.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Bekor qilish
                         </a>
                         <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-trash me-2"></i>O'chirish
+                            <i class="bi bi-trash"></i> O'chirish
                         </button>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

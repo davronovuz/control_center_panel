@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Vazifani o'chirish | HERMES{% endblock %}
+
+{% block page_title %}Vazifani o'chirish{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-6 col-lg-5">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-danger bg-opacity-10" style="width: 80px; height: 80px;">
+                            <i class="bi bi-trash text-danger" style="font-size: 36px;"></i>
+                        </div>
+                    </div>
+
+                    <h4 class="mb-3">Vazifani o'chirish</h4>
+                    <p class="text-muted mb-4">
+                        <strong>"{{ task.title }}"</strong> vazifasini o'chirmoqchimisiz?
+                        <br>Bu amalni ortga qaytarib bo'lmaydi.
+                    </p>
+
+                    {% if task.total_assigned > 0 %}
+                    <div class="alert alert-warning text-start">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Bu vazifaga <strong>{{ task.total_assigned }}</strong> ta yetakchi tayinlangan. Barcha ma'lumotlar o'chiriladi.
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" class="d-flex gap-2 justify-content-center">
+                        {% csrf_token %}
+                        <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Bekor qilish
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> O'chirish
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

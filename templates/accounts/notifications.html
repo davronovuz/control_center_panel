@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Bildirishnomalar | HERMES{% endblock %}
+
+{% block page_title %}Bildirishnomalar{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="page-header">
+        <div>
+            <h1 class="page-header-title">Bildirishnomalar</h1>
+        </div>
+        <a href="{% url 'accounts:notifications_mark_all_read' %}" class="btn btn-secondary">
+            <i class="bi bi-check2-all"></i> Barchasini o'qilgan deb belgilash
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            {% for notification in notifications %}
+            <div class="d-flex align-items-start gap-3 p-3 border-bottom {% if not notification.is_read %}bg-light{% endif %}">
+                <div class="notification-icon rounded-circle d-flex align-items-center justify-content-center
+                    {% if notification.type == 'task_new' %}bg-primary bg-opacity-10 text-primary
+                    {% elif notification.type == 'task_deadline' %}bg-warning bg-opacity-10 text-warning
+                    {% elif notification.type == 'task_overdue' %}bg-danger bg-opacity-10 text-danger
+                    {% elif notification.type == 'task_approved' %}bg-success bg-opacity-10 text-success
+                    {% elif notification.type == 'announcement' %}bg-info bg-opacity-10 text-info
+                    {% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}"
+                    style="width: 45px; height: 45px; min-width: 45px;">
+                    {% if notification.type == 'task_new' %}<i class="bi bi-list-task"></i>
+                    {% elif notification.type == 'task_deadline' %}<i class="bi bi-clock"></i>
+                    {% elif notification.type == 'task_overdue' %}<i class="bi bi-exclamation-triangle"></i>
+                    {% elif notification.type == 'task_approved' %}<i class="bi bi-check2-all"></i>
+                    {% elif notification.type == 'announcement' %}<i class="bi bi-megaphone"></i>
+                    {% else %}<i class="bi bi-bell"></i>{% endif %}
+                </div>
+
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1 {% if not notification.is_read %}fw-bold{% endif %}">{{ notification.title }}</h6>
+                            <p class="text-muted mb-1 small">{{ notification.message|truncatechars:100 }}</p>
+                            <small class="text-muted">{{ notification.created_at|timesince }} oldin</small>
+                        </div>
+
+                        {% if notification.link %}
+                        <a href="{% url 'accounts:notification_read' notification.pk %}" class="btn btn-sm btn-outline-primary">
+                            Ko'rish
+                        </a>
+                        {% elif not notification.is_read %}
+                        <a href="{% url 'accounts:notification_read' notification.pk %}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-check"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-bell-slash fs-1 d-block mb-2"></i>
+                <p class="mb-0">Bildirishnomalar yo'q</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if notifications.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if notifications.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ notifications.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in notifications.paginator.page_range %}
+                        {% if notifications.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > notifications.number|add:'-3' and num < notifications.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if notifications.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ notifications.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

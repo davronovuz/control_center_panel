@@ -1,201 +1,214 @@
 {% extends 'base.html' %}
 
-{% block title %}Yetakchilar — Hermes{% endblock %}
+{% block title %}Yetakchilar | HERMES{% endblock %}
+
 {% block page_title %}Yetakchilar{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <span class="text-muted">Jami: {{ leaders.paginator.count }} ta yetakchi</span>
-    </div>
-    <a href="{% url 'accounts:leader_create' %}" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-2"></i>Yangi yetakchi
-    </a>
-</div>
-
-<!-- Filters -->
-<div class="table-card mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-2">
-                <label class="form-label">Holat</label>
-                <select name="status" class="form-select">
-                    <option value="">Barchasi</option>
-                    {% for value, label in status_choices %}
-                    <option value="{{ value }}" {% if current_filters.status == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Viloyat</label>
-                <select name="region" class="form-select">
-                    <option value="">Barchasi</option>
-                    {% for region in regions %}
-                    <option value="{{ region.pk }}" {% if current_filters.region == region.pk|stringformat:"s" %}selected{% endif %}>{{ region.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Tuman</label>
-                <select name="district" class="form-select">
-                    <option value="">Barchasi</option>
-                    {% for district in districts %}
-                    <option value="{{ district.pk }}" {% if current_filters.district == district.pk|stringformat:"s" %}selected{% endif %}>{{ district.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Qidirish</label>
-                <input type="text" name="search" class="form-control" placeholder="Ism, telefon..." value="{{ current_filters.search|default:'' }}">
-            </div>
-            <div class="col-md-1 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search"></i>
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Leaders Table -->
-<div class="table-card">
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Yetakchi</th>
-                    <th>Telefon</th>
-                    <th>Mahalla</th>
-                    <th>Holat</th>
-                    <th>Vazifalar</th>
-                    <th>Bajarilgan</th>
-                    <th>Amallar</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for leader in leaders %}
-                <tr>
-                    <td>
-                        <a href="{% url 'accounts:leader_detail' leader.pk %}" class="text-decoration-none">
-                            <div class="fw-medium">{{ leader.get_full_name|default:leader.username }}</div>
-                            <small class="text-muted">@{{ leader.username }}</small>
-                        </a>
-                    </td>
-                    <td>
-                        {% if leader.phone %}
-                        <a href="tel:{{ leader.phone }}" class="text-decoration-none">{{ leader.phone }}</a>
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if leader.mahalla %}
-                        <div>{{ leader.mahalla.name }}</div>
-                        <small class="text-muted">{{ leader.district|default:"" }}</small>
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if leader.status == 'active' %}
-                        <span class="badge-status badge-active">Faol</span>
-                        {% elif leader.status == 'inactive' %}
-                        <span class="badge-status badge-draft">Nofaol</span>
-                        {% else %}
-                        <span class="badge-status badge-cancelled">Bloklangan</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <span class="fw-medium">{{ leader.tasks_count }}</span>
-                    </td>
-                    <td>
-                        {% if leader.tasks_count > 0 %}
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="progress" style="width: 50px; height: 6px;">
-                                {% widthratio leader.completed_count leader.tasks_count 100 as percent %}
-                                <div class="progress-bar bg-success" style="width: {{ percent }}%"></div>
-                            </div>
-                            <small>{{ leader.completed_count }}</small>
-                        </div>
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-light" data-bs-toggle="dropdown">
-                                <i class="bi bi-three-dots-vertical"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'accounts:leader_detail' leader.pk %}">
-                                        <i class="bi bi-eye me-2"></i>Ko'rish
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'accounts:leader_edit' leader.pk %}">
-                                        <i class="bi bi-pencil me-2"></i>Tahrirlash
-                                    </a>
-                                </li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item text-danger" href="{% url 'accounts:leader_delete' leader.pk %}">
-                                        <i class="bi bi-trash me-2"></i>O'chirish
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="text-center py-5">
-                        <i class="bi bi-people text-muted" style="font-size: 48px;"></i>
-                        <p class="text-muted mt-3">Yetakchilar topilmadi</p>
-                        <a href="{% url 'accounts:leader_create' %}" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-2"></i>Yangi yetakchi qo'shish
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="fade-in">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-header-title">Yetakchilar</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Yetakchilar</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'accounts:leader_create' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus"></i> Yangi yetakchi
+        </a>
     </div>
 
-    <!-- Pagination -->
-    {% if leaders.has_other_pages %}
-    <div class="card-footer bg-white">
-        <nav>
-            <ul class="pagination justify-content-center mb-0">
-                {% if leaders.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ leaders.previous_page_number }}&status={{ current_filters.status|default:'' }}&region={{ current_filters.region|default:'' }}&district={{ current_filters.district|default:'' }}&search={{ current_filters.search|default:'' }}">
-                        <i class="bi bi-chevron-left"></i>
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Qidirish</label>
+                    <input type="text" name="search" class="form-control" placeholder="Ism, telefon..." value="{{ current_filters.search|default:'' }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Holat</label>
+                    <select name="status" class="form-select">
+                        <option value="">Barchasi</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if current_filters.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Viloyat</label>
+                    <select name="region" class="form-select">
+                        <option value="">Barchasi</option>
+                        {% for region in regions %}
+                        <option value="{{ region.pk }}" {% if current_filters.region == region.pk|stringformat:"s" %}selected{% endif %}>{{ region.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Tuman</label>
+                    <select name="district" class="form-select">
+                        <option value="">Barchasi</option>
+                        {% for district in districts %}
+                        <option value="{{ district.pk }}" {% if current_filters.district == district.pk|stringformat:"s" %}selected{% endif %}>{{ district.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel"></i> Filtrlash
+                    </button>
+                    <a href="{% url 'accounts:leader_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-lg"></i>
                     </a>
-                </li>
-                {% endif %}
-
-                {% for num in leaders.paginator.page_range %}
-                {% if leaders.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% elif num > leaders.number|add:'-3' and num < leaders.number|add:'3' %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}&status={{ current_filters.status|default:'' }}&region={{ current_filters.region|default:'' }}&district={{ current_filters.district|default:'' }}&search={{ current_filters.search|default:'' }}">{{ num }}</a>
-                </li>
-                {% endif %}
-                {% endfor %}
-
-                {% if leaders.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ leaders.next_page_number }}&status={{ current_filters.status|default:'' }}&region={{ current_filters.region|default:'' }}&district={{ current_filters.district|default:'' }}&search={{ current_filters.search|default:'' }}">
-                        <i class="bi bi-chevron-right"></i>
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
+                </div>
+            </form>
+        </div>
     </div>
-    {% endif %}
+
+    <!-- Leaders Table -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Yetakchi</th>
+                            <th>Telefon</th>
+                            <th>Manzil</th>
+                            <th>Holat</th>
+                            <th>Vazifalar</th>
+                            <th>Oxirgi faollik</th>
+                            <th class="text-end">Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for leader in leaders %}
+                        <tr>
+                            <td>
+                                <div class="table-user">
+                                    <div class="table-user-avatar">
+                                        {% if leader.avatar %}
+                                        <img src="{{ leader.avatar.url }}" alt="">
+                                        {% else %}
+                                        {{ leader.first_name|slice:":1" }}{{ leader.last_name|slice:":1" }}
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="table-user-name">{{ leader.get_full_name|default:leader.username }}</div>
+                                        <div class="table-user-email">{{ leader.username }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ leader.phone|default:"—" }}</td>
+                            <td>
+                                <div>{{ leader.mahalla|default:"—" }}</div>
+                                <small class="text-muted">{{ leader.district|default:"" }}</small>
+                            </td>
+                            <td>
+                                {% if leader.status == 'active' %}
+                                <span class="badge badge-success">Faol</span>
+                                {% elif leader.status == 'inactive' %}
+                                <span class="badge badge-warning">Nofaol</span>
+                                {% elif leader.status == 'blocked' %}
+                                <span class="badge badge-danger">Bloklangan</span>
+                                {% else %}
+                                <span class="badge badge-secondary">{{ leader.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-success fw-semibold">{{ leader.completed_count }}</span>
+                                <span class="text-muted">/</span>
+                                <span>{{ leader.tasks_count }}</span>
+                            </td>
+                            <td>
+                                {% if leader.last_activity %}
+                                <span class="text-muted">{{ leader.last_activity|timesince }} oldin</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-icon btn-secondary" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'accounts:leader_detail' leader.pk %}">
+                                                <i class="bi bi-eye"></i> Ko'rish
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'accounts:leader_edit' leader.pk %}">
+                                                <i class="bi bi-pencil"></i> Tahrirlash
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="{% url 'accounts:leader_delete' leader.pk %}">
+                                                <i class="bi bi-trash"></i> O'chirish
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <i class="bi bi-people"></i>
+                                    </div>
+                                    <div class="empty-state-title">Yetakchilar topilmadi</div>
+                                    <p class="empty-state-text">Hozircha yetakchilar yo'q yoki filter bo'yicha topilmadi.</p>
+                                    <a href="{% url 'accounts:leader_create' %}" class="btn btn-primary">
+                                        <i class="bi bi-person-plus"></i> Yangi yetakchi qo'shish
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if leaders.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if leaders.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ leaders.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in leaders.paginator.page_range %}
+                        {% if leaders.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > leaders.number|add:'-3' and num < leaders.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if leaders.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ leaders.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
