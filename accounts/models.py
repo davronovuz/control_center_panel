@@ -267,7 +267,7 @@ class User(AbstractUser):
 
     # -------- CONTACT --------
     phone = models.CharField(
-        max_length=13,
+        max_length=20,
         validators=[phone_validator],
         unique=True,
         null=True,
