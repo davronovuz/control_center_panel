@@ -1,20 +1,13 @@
 import uuid
 from django.db import models
-from django.conf import settings
-from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
+from django.conf import settings as django_settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
-# ============================================================
-# TASK TEMPLATE (Shablon)
-# ============================================================
-
 class TaskTemplate(models.Model):
-    """
-    Vazifa shabloni
-    Tez-tez ishlatiladigan vazifa turlari uchun shablon
-    """
+    """Vazifa shabloni"""
 
     class Type(models.TextChoices):
         TABLE = 'table', _('Jadval')
@@ -42,33 +35,25 @@ class TaskTemplate(models.Model):
         default=Type.TABLE,
         verbose_name=_("Turi")
     )
-
-    # Shablon strukturasi (columns/questions)
     structure = models.JSONField(
         default=dict,
-        verbose_name=_("Struktura"),
-        help_text=_("Ustunlar yoki savollar")
+        verbose_name=_("Struktura")
     )
-
-    # Sozlamalar
-    settings = models.JSONField(
+    config = models.JSONField(
         default=dict,
         blank=True,
         verbose_name=_("Sozlamalar")
     )
-
     is_active = models.BooleanField(
         default=True,
         verbose_name=_("Faol")
     )
     is_system = models.BooleanField(
         default=False,
-        verbose_name=_("Tizimga tegishli"),
-        help_text=_("O'chirib bo'lmaydi")
+        verbose_name=_("Tizimga tegishli")
     )
-
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        django_settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         related_name='created_templates',
@@ -86,15 +71,8 @@ class TaskTemplate(models.Model):
         return self.name
 
 
-# ============================================================
-# TASK (Vazifa)
-# ============================================================
-
 class Task(models.Model):
-    """
-    Vazifa modeli
-    Admin tomonidan yaratiladi, yetakchilarga tayinlanadi
-    """
+    """Vazifa modeli"""
 
     class Type(models.TextChoices):
         TABLE = 'table', _('Jadval')
@@ -122,8 +100,6 @@ class Task(models.Model):
         default=uuid.uuid4,
         editable=False
     )
-
-    # -------- BASIC INFO --------
     title = models.CharField(
         max_length=255,
         verbose_name=_("Sarlavha")
@@ -134,8 +110,7 @@ class Task(models.Model):
     )
     instructions = models.TextField(
         blank=True,
-        verbose_name=_("Ko'rsatmalar"),
-        help_text=_("Yetakchi uchun batafsil yo'riqnoma")
+        verbose_name=_("Ko'rsatmalar")
     )
     type = models.CharField(
         max_length=20,
@@ -158,8 +133,6 @@ class Task(models.Model):
         verbose_name=_("Muhimlik"),
         db_index=True
     )
-
-    # -------- TEMPLATE --------
     template = models.ForeignKey(
         TaskTemplate,
         on_delete=models.SET_NULL,
@@ -169,7 +142,7 @@ class Task(models.Model):
         verbose_name=_("Shablon")
     )
 
-    # -------- TARGETING --------
+    # Targeting
     target_all = models.BooleanField(
         default=False,
         verbose_name=_("Hammaga")
@@ -197,7 +170,7 @@ class Task(models.Model):
         verbose_name=_("Mahallalar")
     )
 
-    # -------- SCHEDULE --------
+    # Schedule
     start_date = models.DateTimeField(
         null=True,
         blank=True,
@@ -207,11 +180,10 @@ class Task(models.Model):
         verbose_name=_("Muddat")
     )
 
-    # -------- TABLE SETTINGS (for TABLE type) --------
+    # Table settings
     allow_multiple_rows = models.BooleanField(
         default=False,
-        verbose_name=_("Ko'p qator"),
-        help_text=_("Yetakchi bir nechta qator to'ldirishi mumkin")
+        verbose_name=_("Ko'p qator")
     )
     min_rows = models.PositiveIntegerField(
         default=1,
@@ -222,12 +194,11 @@ class Task(models.Model):
         verbose_name=_("Maksimal qatorlar")
     )
 
-    # -------- FILE SETTINGS (for FILE type) --------
+    # File settings
     allowed_extensions = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("Ruxsat etilgan formatlar"),
-        help_text=_("['pdf', 'doc', 'jpg']")
+        verbose_name=_("Ruxsat etilgan formatlar")
     )
     max_file_size = models.PositiveIntegerField(
         default=10,
@@ -238,11 +209,10 @@ class Task(models.Model):
         verbose_name=_("Maksimal fayllar soni")
     )
 
-    # -------- WORKFLOW --------
+    # Workflow
     requires_approval = models.BooleanField(
         default=False,
-        verbose_name=_("Tasdiqlash kerak"),
-        help_text=_("Admin tasdiqlashi kerak")
+        verbose_name=_("Tasdiqlash kerak")
     )
     allow_edit_after_submit = models.BooleanField(
         default=True,
@@ -253,7 +223,7 @@ class Task(models.Model):
         verbose_name=_("Avtomatik saqlash")
     )
 
-    # -------- REMINDERS --------
+    # Reminders
     reminder_enabled = models.BooleanField(
         default=True,
         verbose_name=_("Eslatma yuborish")
@@ -261,11 +231,10 @@ class Task(models.Model):
     reminder_days = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("Eslatma kunlari"),
-        help_text=_("[3, 1] - 3 va 1 kun oldin")
+        verbose_name=_("Eslatma kunlari")
     )
 
-    # -------- RECURRING --------
+    # Recurring
     is_recurring = models.BooleanField(
         default=False,
         verbose_name=_("Takrorlanuvchi")
@@ -296,54 +265,25 @@ class Task(models.Model):
         verbose_name=_("Asosiy vazifa")
     )
 
-    # -------- STATISTICS --------
-    total_assigned = models.PositiveIntegerField(
-        default=0,
-        verbose_name=_("Tayinlangan")
-    )
-    total_started = models.PositiveIntegerField(
-        default=0,
-        verbose_name=_("Boshlangan")
-    )
-    total_submitted = models.PositiveIntegerField(
-        default=0,
-        verbose_name=_("Yuborilgan")
-    )
-    total_approved = models.PositiveIntegerField(
-        default=0,
-        verbose_name=_("Tasdiqlangan")
-    )
-    total_rejected = models.PositiveIntegerField(
-        default=0,
-        verbose_name=_("Rad etilgan")
-    )
+    # Statistics
+    total_assigned = models.PositiveIntegerField(default=0, verbose_name=_("Tayinlangan"))
+    total_started = models.PositiveIntegerField(default=0, verbose_name=_("Boshlangan"))
+    total_submitted = models.PositiveIntegerField(default=0, verbose_name=_("Yuborilgan"))
+    total_approved = models.PositiveIntegerField(default=0, verbose_name=_("Tasdiqlangan"))
+    total_rejected = models.PositiveIntegerField(default=0, verbose_name=_("Rad etilgan"))
 
-    # -------- META --------
+    # Meta
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        django_settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         related_name='created_tasks',
         verbose_name=_("Yaratuvchi")
     )
-    published_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("E'lon qilingan")
-    )
-    completed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Yakunlangan")
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Yaratilgan")
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name=_("Yangilangan")
-    )
+    published_at = models.DateTimeField(null=True, blank=True, verbose_name=_("E'lon qilingan"))
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Yakunlangan"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Yaratilgan"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Yangilangan"))
 
     class Meta:
         verbose_name = _("Vazifa")
@@ -352,13 +292,11 @@ class Task(models.Model):
         indexes = [
             models.Index(fields=['status', 'priority', '-deadline']),
             models.Index(fields=['type', 'status']),
-            models.Index(fields=['created_by', '-created_at']),
         ]
 
     def __str__(self):
         return self.title
 
-    # -------- PROPERTIES --------
     @property
     def is_active(self):
         return self.status == self.Status.ACTIVE
@@ -370,12 +308,6 @@ class Task(models.Model):
         return timezone.now() > self.deadline
 
     @property
-    def is_started(self):
-        if self.start_date:
-            return timezone.now() >= self.start_date
-        return True
-
-    @property
     def completion_rate(self):
         if self.total_assigned == 0:
             return 0
@@ -385,7 +317,7 @@ class Task(models.Model):
 
     @property
     def time_remaining(self):
-        if not self.is_active:
+        if self.status != self.Status.ACTIVE:
             return None
 
         delta = self.deadline - timezone.now()
@@ -396,14 +328,10 @@ class Task(models.Model):
 
         days = delta.days
         hours = delta.seconds // 3600
-        minutes = (delta.seconds % 3600) // 60
 
         if days > 0:
             return f"{days} kun {hours} soat"
-        elif hours > 0:
-            return f"{hours} soat {minutes} daqiqa"
-        else:
-            return f"{minutes} daqiqa"
+        return f"{hours} soat"
 
     @property
     def status_color(self):
@@ -427,9 +355,7 @@ class Task(models.Model):
         }
         return colors.get(self.priority, 'secondary')
 
-    # -------- METHODS --------
     def get_target_leaders(self):
-        """Vazifa yuboriladigan yetakchilar"""
         from accounts.models import User
 
         qs = User.objects.filter(
@@ -449,11 +375,9 @@ class Task(models.Model):
         return qs.distinct()
 
     def publish(self, user=None):
-        """Vazifani e'lon qilish"""
         if self.status != self.Status.DRAFT:
             return False, _("Faqat qoralama vazifani e'lon qilish mumkin")
 
-        # Validatsiya
         if self.type == self.Type.TABLE and not self.columns.exists():
             return False, _("Jadval uchun kamida 1 ta ustun kerak")
 
@@ -464,32 +388,24 @@ class Task(models.Model):
         if not leaders.exists():
             return False, _("Hech qanday yetakchi tanlanmagan")
 
-        # Tayinlash
         from accounts.models import Notification
 
         assignments = []
         for leader in leaders:
-            assignments.append(
-                TaskAssignment(
-                    task=self,
-                    leader=leader
-                )
-            )
+            assignments.append(TaskAssignment(task=self, leader=leader))
 
         TaskAssignment.objects.bulk_create(assignments, ignore_conflicts=True)
 
-        # Status yangilash
         self.status = self.Status.ACTIVE
         self.published_at = timezone.now()
         self.total_assigned = leaders.count()
         self.save()
 
-        # Bildirishnoma
         Notification.send_bulk(
             users=leaders,
             type=Notification.Type.TASK_NEW,
             title=_("Yangi vazifa"),
-            message=f"Sizga '{self.title}' vazifasi berildi. Muddat: {self.deadline.strftime('%d.%m.%Y %H:%M')}",
+            message=f"Sizga '{self.title}' vazifasi berildi.",
             link=f'/leader/tasks/{self.pk}/',
             priority='high' if self.priority in ['high', 'urgent'] else 'normal',
             metadata={'task_id': str(self.pk)}
@@ -498,7 +414,6 @@ class Task(models.Model):
         return True, _("Vazifa muvaffaqiyatli e'lon qilindi")
 
     def update_stats(self):
-        """Statistikani yangilash"""
         assignments = self.assignments.all()
 
         self.total_assigned = assignments.count()
@@ -519,13 +434,11 @@ class Task(models.Model):
         ])
 
     def complete(self):
-        """Vazifani yakunlash"""
         self.status = self.Status.COMPLETED
         self.completed_at = timezone.now()
         self.save()
 
     def duplicate(self, user=None):
-        """Vazifani nusxalash"""
         new_task = Task.objects.create(
             title=f"{self.title} (nusxa)",
             description=self.description,
@@ -550,7 +463,6 @@ class Task(models.Model):
             created_by=user
         )
 
-        # Ustunlarni nusxalash
         for column in self.columns.all():
             TaskColumn.objects.create(
                 task=new_task,
@@ -565,7 +477,6 @@ class Task(models.Model):
                 default_value=column.default_value
             )
 
-        # Savollarni nusxalash
         for question in self.questions.all():
             TaskQuestion.objects.create(
                 task=new_task,
@@ -581,15 +492,8 @@ class Task(models.Model):
         return new_task
 
 
-# ============================================================
-# TASK COLUMN (Jadval ustuni)
-# ============================================================
-
 class TaskColumn(models.Model):
-    """
-    Jadval ustuni (TABLE type uchun)
-    Google Sheets ustuniga o'xshash
-    """
+    """Jadval ustuni"""
 
     class DataType(models.TextChoices):
         TEXT = 'text', _('Matn')
@@ -608,85 +512,21 @@ class TaskColumn(models.Model):
         FILE = 'file', _('Fayl')
         IMAGE = 'image', _('Rasm')
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
-    task = models.ForeignKey(
-        Task,
-        on_delete=models.CASCADE,
-        related_name='columns',
-        verbose_name=_("Vazifa")
-    )
-    title = models.CharField(
-        max_length=255,
-        verbose_name=_("Ustun nomi")
-    )
-    data_type = models.CharField(
-        max_length=20,
-        choices=DataType.choices,
-        default=DataType.TEXT,
-        verbose_name=_("Ma'lumot turi")
-    )
-
-    # -------- OPTIONS --------
-    choices = models.JSONField(
-        null=True,
-        blank=True,
-        verbose_name=_("Tanlov variantlari"),
-        help_text=_("[{'value': '1', 'label': 'Birinchi'}, ...]")
-    )
-
-    # -------- VALIDATION --------
-    required = models.BooleanField(
-        default=True,
-        verbose_name=_("Majburiy")
-    )
-    validation = models.JSONField(
-        default=dict,
-        blank=True,
-        verbose_name=_("Validatsiya"),
-        help_text=_("{'min': 0, 'max': 100, 'min_length': 1, 'max_length': 500, 'regex': ''}")
-    )
-
-    # -------- DISPLAY --------
-    order = models.PositiveIntegerField(
-        default=0,
-        verbose_name=_("Tartib")
-    )
-    width = models.PositiveIntegerField(
-        default=150,
-        verbose_name=_("Kenglik (px)")
-    )
-    help_text = models.CharField(
-        max_length=500,
-        blank=True,
-        verbose_name=_("Yordam matni")
-    )
-    placeholder = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name=_("Placeholder")
-    )
-    default_value = models.CharField(
-        max_length=500,
-        blank=True,
-        verbose_name=_("Default qiymat")
-    )
-
-    # -------- FORMULA --------
-    is_calculated = models.BooleanField(
-        default=False,
-        verbose_name=_("Hisoblanadigan")
-    )
-    formula = models.CharField(
-        max_length=500,
-        blank=True,
-        verbose_name=_("Formula"),
-        help_text=_("Masalan: =SUM(A:A) yoki =B*C")
-    )
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='columns', verbose_name=_("Vazifa"))
+    title = models.CharField(max_length=255, verbose_name=_("Ustun nomi"))
+    data_type = models.CharField(max_length=20, choices=DataType.choices, default=DataType.TEXT,
+                                 verbose_name=_("Ma'lumot turi"))
+    choices = models.JSONField(null=True, blank=True, verbose_name=_("Tanlov variantlari"))
+    required = models.BooleanField(default=True, verbose_name=_("Majburiy"))
+    validation = models.JSONField(default=dict, blank=True, verbose_name=_("Validatsiya"))
+    order = models.PositiveIntegerField(default=0, verbose_name=_("Tartib"))
+    width = models.PositiveIntegerField(default=150, verbose_name=_("Kenglik (px)"))
+    help_text = models.CharField(max_length=500, blank=True, verbose_name=_("Yordam matni"))
+    placeholder = models.CharField(max_length=255, blank=True, verbose_name=_("Placeholder"))
+    default_value = models.CharField(max_length=500, blank=True, verbose_name=_("Default qiymat"))
+    is_calculated = models.BooleanField(default=False, verbose_name=_("Hisoblanadigan"))
+    formula = models.CharField(max_length=500, blank=True, verbose_name=_("Formula"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -700,10 +540,8 @@ class TaskColumn(models.Model):
         return f"{self.task.title} - {self.title}"
 
     def validate_value(self, value):
-        """Qiymatni tekshirish"""
         errors = []
 
-        # Majburiy tekshirish
         if self.required and (value is None or value == ''):
             errors.append(_("Bu maydon majburiy"))
             return errors
@@ -711,7 +549,6 @@ class TaskColumn(models.Model):
         if value is None or value == '':
             return errors
 
-        # Turi bo'yicha tekshirish
         if self.data_type in ['number', 'decimal']:
             try:
                 num = float(value)
@@ -747,14 +584,8 @@ class TaskColumn(models.Model):
         return errors
 
 
-# ============================================================
-# TASK QUESTION (So'rovnoma savoli)
-# ============================================================
-
 class TaskQuestion(models.Model):
-    """
-    So'rovnoma savoli (SURVEY type uchun)
-    """
+    """So'rovnoma savoli"""
 
     class AnswerType(models.TextChoices):
         TEXT = 'text', _('Qisqa matn')
@@ -767,71 +598,19 @@ class TaskQuestion(models.Model):
         RATING = 'rating', _('Baho (1-5)')
         FILE = 'file', _('Fayl')
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
-    task = models.ForeignKey(
-        Task,
-        on_delete=models.CASCADE,
-        related_name='questions',
-        verbose_name=_("Vazifa")
-    )
-    text = models.TextField(
-        verbose_name=_("Savol matni")
-    )
-    answer_type = models.CharField(
-        max_length=20,
-        choices=AnswerType.choices,
-        default=AnswerType.TEXT,
-        verbose_name=_("Javob turi")
-    )
-
-    # -------- OPTIONS --------
-    choices = models.JSONField(
-        null=True,
-        blank=True,
-        verbose_name=_("Tanlov variantlari")
-    )
-
-    # -------- VALIDATION --------
-    required = models.BooleanField(
-        default=True,
-        verbose_name=_("Majburiy")
-    )
-    validation = models.JSONField(
-        default=dict,
-        blank=True,
-        verbose_name=_("Validatsiya")
-    )
-
-    # -------- DISPLAY --------
-    order = models.PositiveIntegerField(
-        default=0,
-        verbose_name=_("Tartib")
-    )
-    help_text = models.TextField(
-        blank=True,
-        verbose_name=_("Yordam matni")
-    )
-
-    # -------- CONDITIONAL --------
-    depends_on = models.ForeignKey(
-        'self',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='dependent_questions',
-        verbose_name=_("Bog'liq savol")
-    )
-    depends_on_value = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name=_("Bog'liq qiymat"),
-        help_text=_("Oldingi savol javobi shu bo'lsa ko'rsatiladi")
-    )
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='questions', verbose_name=_("Vazifa"))
+    text = models.TextField(verbose_name=_("Savol matni"))
+    answer_type = models.CharField(max_length=20, choices=AnswerType.choices, default=AnswerType.TEXT,
+                                   verbose_name=_("Javob turi"))
+    choices = models.JSONField(null=True, blank=True, verbose_name=_("Tanlov variantlari"))
+    required = models.BooleanField(default=True, verbose_name=_("Majburiy"))
+    validation = models.JSONField(default=dict, blank=True, verbose_name=_("Validatsiya"))
+    order = models.PositiveIntegerField(default=0, verbose_name=_("Tartib"))
+    help_text = models.TextField(blank=True, verbose_name=_("Yordam matni"))
+    depends_on = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='dependent_questions', verbose_name=_("Bog'liq savol"))
+    depends_on_value = models.CharField(max_length=255, blank=True, verbose_name=_("Bog'liq qiymat"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -844,15 +623,8 @@ class TaskQuestion(models.Model):
         return f"{self.task.title} - Savol {self.order}"
 
 
-# ============================================================
-# TASK ASSIGNMENT (Tayinlash)
-# ============================================================
-
 class TaskAssignment(models.Model):
-    """
-    Vazifa tayinlash
-    Yetakchi va vazifa o'rtasidagi bog'lanish
-    """
+    """Vazifa tayinlash"""
 
     class Status(models.TextChoices):
         PENDING = 'pending', _('Kutilmoqda')
@@ -863,92 +635,29 @@ class TaskAssignment(models.Model):
         REJECTED = 'rejected', _('Rad etildi')
         OVERDUE = 'overdue', _('Muddati o\'tdi')
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
-    task = models.ForeignKey(
-        Task,
-        on_delete=models.CASCADE,
-        related_name='assignments',
-        verbose_name=_("Vazifa")
-    )
-    leader = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='task_assignments',
-        verbose_name=_("Yetakchi")
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
-        verbose_name=_("Holat"),
-        db_index=True
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='assignments', verbose_name=_("Vazifa"))
+    leader = models.ForeignKey(django_settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                               related_name='task_assignments', verbose_name=_("Yetakchi"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name=_("Holat"),
+                              db_index=True)
 
-    # -------- TIMESTAMPS --------
-    viewed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Ko'rilgan")
-    )
-    started_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Boshlangan")
-    )
-    submitted_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Yuborilgan")
-    )
-    approved_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Tasdiqlangan")
-    )
-    rejected_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Rad etilgan")
-    )
+    viewed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Ko'rilgan"))
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Boshlangan"))
+    submitted_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Yuborilgan"))
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Tasdiqlangan"))
+    rejected_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Rad etilgan"))
 
-    # -------- APPROVAL --------
-    approved_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='approved_assignments',
-        verbose_name=_("Kim tasdiqladi")
-    )
-    rejection_reason = models.TextField(
-        blank=True,
-        verbose_name=_("Rad etish sababi")
-    )
-    admin_notes = models.TextField(
-        blank=True,
-        verbose_name=_("Admin izohi")
-    )
+    approved_by = models.ForeignKey(django_settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='approved_assignments', verbose_name=_("Kim tasdiqladi"))
+    rejection_reason = models.TextField(blank=True, verbose_name=_("Rad etish sababi"))
+    admin_notes = models.TextField(blank=True, verbose_name=_("Admin izohi"))
 
-    # -------- PROGRESS --------
-    progress = models.PositiveIntegerField(
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        verbose_name=_("Jarayon (%)")
-    )
+    progress = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)],
+                                           verbose_name=_("Jarayon (%)"))
 
-    # -------- META --------
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Tayinlangan")
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name=_("Yangilangan")
-    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Tayinlangan"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Yangilangan"))
 
     class Meta:
         verbose_name = _("Tayinlash")
@@ -958,13 +667,11 @@ class TaskAssignment(models.Model):
         indexes = [
             models.Index(fields=['task', 'status']),
             models.Index(fields=['leader', 'status']),
-            models.Index(fields=['status', '-created_at']),
         ]
 
     def __str__(self):
         return f"{self.leader} - {self.task.title}"
 
-    # -------- PROPERTIES --------
     @property
     def is_overdue(self):
         if self.status in [self.Status.SUBMITTED, self.Status.APPROVED]:
@@ -986,25 +693,21 @@ class TaskAssignment(models.Model):
 
     @property
     def can_edit(self):
-        """Tahrirlash mumkinmi"""
         if self.task.status != Task.Status.ACTIVE:
             return False
-        if self.status in [self.Status.APPROVED]:
+        if self.status == self.Status.APPROVED:
             return False
         if self.status == self.Status.SUBMITTED and not self.task.allow_edit_after_submit:
             return False
         return True
 
-    # -------- METHODS --------
     def mark_viewed(self):
-        """Ko'rildi deb belgilash"""
         if self.status == self.Status.PENDING:
             self.status = self.Status.VIEWED
             self.viewed_at = timezone.now()
             self.save(update_fields=['status', 'viewed_at', 'updated_at'])
 
     def start(self):
-        """Boshlash"""
         if self.status in [self.Status.PENDING, self.Status.VIEWED]:
             self.status = self.Status.IN_PROGRESS
             self.started_at = timezone.now()
@@ -1012,14 +715,12 @@ class TaskAssignment(models.Model):
             self.task.update_stats()
 
     def submit(self):
-        """Yuborish"""
         self.status = self.Status.SUBMITTED
         self.submitted_at = timezone.now()
         self.progress = 100
         self.save(update_fields=['status', 'submitted_at', 'progress', 'updated_at'])
         self.task.update_stats()
 
-        # Tarix
         TaskHistory.objects.create(
             task=self.task,
             assignment=self,
@@ -1029,7 +730,6 @@ class TaskAssignment(models.Model):
         )
 
     def approve(self, user, notes=''):
-        """Tasdiqlash"""
         from accounts.models import Notification
 
         self.status = self.Status.APPROVED
@@ -1039,7 +739,6 @@ class TaskAssignment(models.Model):
         self.save()
         self.task.update_stats()
 
-        # Bildirishnoma
         Notification.send(
             user=self.leader,
             type=Notification.Type.TASK_APPROVED,
@@ -1048,7 +747,6 @@ class TaskAssignment(models.Model):
             link=f'/leader/tasks/{self.task.pk}/'
         )
 
-        # Tarix
         TaskHistory.objects.create(
             task=self.task,
             assignment=self,
@@ -1058,7 +756,6 @@ class TaskAssignment(models.Model):
         )
 
     def reject(self, user, reason):
-        """Rad etish"""
         from accounts.models import Notification
 
         self.status = self.Status.REJECTED
@@ -1068,7 +765,6 @@ class TaskAssignment(models.Model):
         self.save()
         self.task.update_stats()
 
-        # Bildirishnoma
         Notification.send(
             user=self.leader,
             type=Notification.Type.TASK_REJECTED,
@@ -1078,7 +774,6 @@ class TaskAssignment(models.Model):
             priority='high'
         )
 
-        # Tarix
         TaskHistory.objects.create(
             task=self.task,
             assignment=self,
@@ -1088,7 +783,6 @@ class TaskAssignment(models.Model):
         )
 
     def calculate_progress(self):
-        """Jarayonni hisoblash"""
         if self.task.type == Task.Type.TABLE:
             total_cells = self.task.columns.filter(required=True).count()
             if total_cells == 0:
@@ -1110,120 +804,36 @@ class TaskAssignment(models.Model):
         return 0
 
     def update_progress(self):
-        """Jarayonni yangilash"""
         self.progress = self.calculate_progress()
         self.save(update_fields=['progress', 'updated_at'])
 
 
-# ============================================================
-# TASK RESPONSE (Javob)
-# ============================================================
-
 class TaskResponse(models.Model):
-    """
-    Vazifa javobi
-    Yetakchi kiritgan ma'lumotlar
-    """
+    """Vazifa javobi"""
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
-    assignment = models.ForeignKey(
-        TaskAssignment,
-        on_delete=models.CASCADE,
-        related_name='responses',
-        verbose_name=_("Tayinlash")
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    assignment = models.ForeignKey(TaskAssignment, on_delete=models.CASCADE, related_name='responses',
+                                   verbose_name=_("Tayinlash"))
+    column = models.ForeignKey(TaskColumn, on_delete=models.CASCADE, null=True, blank=True, related_name='responses',
+                               verbose_name=_("Ustun"))
+    question = models.ForeignKey(TaskQuestion, on_delete=models.CASCADE, null=True, blank=True,
+                                 related_name='responses', verbose_name=_("Savol"))
+    row_index = models.PositiveIntegerField(default=0, verbose_name=_("Qator raqami"))
 
-    # -------- SOURCE --------
-    column = models.ForeignKey(
-        TaskColumn,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='responses',
-        verbose_name=_("Ustun")
-    )
-    question = models.ForeignKey(
-        TaskQuestion,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='responses',
-        verbose_name=_("Savol")
-    )
-    row_index = models.PositiveIntegerField(
-        default=0,
-        verbose_name=_("Qator raqami")
-    )
+    value_text = models.TextField(blank=True, null=True, verbose_name=_("Matn"))
+    value_number = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True, verbose_name=_("Raqam"))
+    value_date = models.DateField(null=True, blank=True, verbose_name=_("Sana"))
+    value_datetime = models.DateTimeField(null=True, blank=True, verbose_name=_("Sana va vaqt"))
+    value_boolean = models.BooleanField(null=True, blank=True, verbose_name=_("Ha/Yo'q"))
+    value_choice = models.CharField(max_length=500, blank=True, verbose_name=_("Tanlov"))
+    value_json = models.JSONField(null=True, blank=True, verbose_name=_("JSON"))
+    value_file = models.FileField(upload_to='responses/%Y/%m/', null=True, blank=True, verbose_name=_("Fayl"))
 
-    # -------- VALUES --------
-    value_text = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name=_("Matn")
-    )
-    value_number = models.DecimalField(
-        max_digits=20,
-        decimal_places=4,
-        null=True,
-        blank=True,
-        verbose_name=_("Raqam")
-    )
-    value_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name=_("Sana")
-    )
-    value_datetime = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Sana va vaqt")
-    )
-    value_boolean = models.BooleanField(
-        null=True,
-        blank=True,
-        verbose_name=_("Ha/Yo'q")
-    )
-    value_choice = models.CharField(
-        max_length=500,
-        blank=True,
-        verbose_name=_("Tanlov")
-    )
-    value_json = models.JSONField(
-        null=True,
-        blank=True,
-        verbose_name=_("JSON")
-    )
-    value_file = models.FileField(
-        upload_to='responses/%Y/%m/',
-        null=True,
-        blank=True,
-        verbose_name=_("Fayl")
-    )
+    is_valid = models.BooleanField(default=True, verbose_name=_("To'g'ri"))
+    validation_errors = models.JSONField(default=list, blank=True, verbose_name=_("Xatolar"))
 
-    # -------- VALIDATION --------
-    is_valid = models.BooleanField(
-        default=True,
-        verbose_name=_("To'g'ri")
-    )
-    validation_errors = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name=_("Xatolar")
-    )
-
-    # -------- META --------
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Yaratilgan")
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name=_("Yangilangan")
-    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Yaratilgan"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Yangilangan"))
 
     class Meta:
         verbose_name = _("Javob")
@@ -1232,13 +842,11 @@ class TaskResponse(models.Model):
         indexes = [
             models.Index(fields=['assignment', 'column']),
             models.Index(fields=['assignment', 'question']),
-            models.Index(fields=['assignment', 'row_index']),
         ]
 
     def __str__(self):
         return f"{self.assignment} - Response"
 
-    # -------- PROPERTIES --------
     @property
     def data_type(self):
         if self.column:
@@ -1249,7 +857,6 @@ class TaskResponse(models.Model):
 
     @property
     def value(self):
-        """Qiymatni olish"""
         dtype = self.data_type
 
         if dtype in ['text', 'textarea', 'phone', 'email', 'url']:
@@ -1271,7 +878,6 @@ class TaskResponse(models.Model):
 
     @property
     def display_value(self):
-        """Ko'rsatish uchun qiymat"""
         val = self.value
 
         if val is None or val == '':
@@ -1292,12 +898,9 @@ class TaskResponse(models.Model):
 
         return str(val)
 
-    # -------- METHODS --------
     def set_value(self, value):
-        """Qiymatni saqlash"""
         dtype = self.data_type
 
-        # Tozalash
         self.value_text = None
         self.value_number = None
         self.value_date = None
@@ -1348,7 +951,6 @@ class TaskResponse(models.Model):
         self.save()
 
     def validate(self):
-        """Validatsiya"""
         errors = []
 
         if self.column:
@@ -1359,19 +961,11 @@ class TaskResponse(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Jarayonni yangilash
         self.assignment.update_progress()
 
 
-# ============================================================
-# TASK HISTORY (Tarix)
-# ============================================================
-
 class TaskHistory(models.Model):
-    """
-    Vazifa tarixi
-    Barcha o'zgarishlarni qayd qilish
-    """
+    """Vazifa tarixi"""
 
     class Action(models.TextChoices):
         CREATED = 'created', _('Yaratildi')
@@ -1388,67 +982,18 @@ class TaskHistory(models.Model):
         CANCELLED = 'cancelled', _('Bekor qilindi')
         REMINDER = 'reminder', _('Eslatma yuborildi')
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
-    task = models.ForeignKey(
-        Task,
-        on_delete=models.CASCADE,
-        related_name='history',
-        verbose_name=_("Vazifa")
-    )
-    assignment = models.ForeignKey(
-        TaskAssignment,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='history',
-        verbose_name=_("Tayinlash")
-    )
-    action = models.CharField(
-        max_length=20,
-        choices=Action.choices,
-        verbose_name=_("Harakat"),
-        db_index=True
-    )
-    actor = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='task_history',
-        verbose_name=_("Kim")
-    )
-    description = models.TextField(
-        blank=True,
-        verbose_name=_("Tavsif")
-    )
-
-    # O'zgarishlar (old_data, new_data)
-    changes = models.JSONField(
-        default=dict,
-        blank=True,
-        verbose_name=_("O'zgarishlar")
-    )
-
-    # Qo'shimcha ma'lumot
-    ip_address = models.GenericIPAddressField(
-        null=True,
-        blank=True,
-        verbose_name=_("IP manzil")
-    )
-    user_agent = models.TextField(
-        blank=True,
-        verbose_name=_("User Agent")
-    )
-
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Vaqt"),
-        db_index=True
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='history', verbose_name=_("Vazifa"))
+    assignment = models.ForeignKey(TaskAssignment, on_delete=models.CASCADE, null=True, blank=True,
+                                   related_name='history', verbose_name=_("Tayinlash"))
+    action = models.CharField(max_length=20, choices=Action.choices, verbose_name=_("Harakat"), db_index=True)
+    actor = models.ForeignKey(django_settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                              related_name='task_history', verbose_name=_("Kim"))
+    description = models.TextField(blank=True, verbose_name=_("Tavsif"))
+    changes = models.JSONField(default=dict, blank=True, verbose_name=_("O'zgarishlar"))
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name=_("IP manzil"))
+    user_agent = models.TextField(blank=True, verbose_name=_("User Agent"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Vaqt"), db_index=True)
 
     class Meta:
         verbose_name = _("Tarix")
@@ -1456,7 +1001,6 @@ class TaskHistory(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['task', '-created_at']),
-            models.Index(fields=['assignment', '-created_at']),
         ]
 
     def __str__(self):

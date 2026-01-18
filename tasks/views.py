@@ -1,24 +1,19 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.http import HttpResponse, JsonResponse
 from django.db.models import Q, Count
-from django.http import HttpResponse
 from django.utils import timezone
 import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
-from .models import Task, Question, TaskAssignment, Answer
-from accounts.models import Region, District, Mahalla
+from .models import Task, TaskColumn, TaskQuestion, TaskAssignment, TaskResponse, TaskHistory, TaskTemplate
 
 
 @login_required
 def task_list(request):
     """Vazifalar ro'yxati"""
-
-    tasks = Task.objects.select_related(
-        'created_by', 'target_region', 'target_district'
-    ).order_by('-created_at')
+    tasks = Task.objects.select_related('created_by', 'target_region', 'target_district').all()
 
     # Filterlar
     status = request.GET.get('status')
@@ -31,15 +26,14 @@ def task_list(request):
     if priority:
         tasks = tasks.filter(priority=priority)
     if task_type:
-        tasks = tasks.filter(task_type=task_type)
+        tasks = tasks.filter(type=task_type)
     if search:
         tasks = tasks.filter(
-            Q(title__icontains=search) |
-            Q(description__icontains=search)
+            Q(title__icontains=search) | Q(description__icontains=search)
         )
 
     # Pagination
-    paginator = Paginator(tasks, 15)
+    paginator = Paginator(tasks, 20)
     page = request.GET.get('page')
     tasks = paginator.get_page(page)
 
@@ -55,323 +49,349 @@ def task_list(request):
             'search': search,
         }
     }
-
     return render(request, 'tasks/task_list.html', context)
-
-
-@login_required
-def task_create(request):
-    """Yangi vazifa yaratish"""
-
-    if request.method == 'POST':
-        try:
-            # Vazifa yaratish
-            task = Task.objects.create(
-                title=request.POST.get('title'),
-                description=request.POST.get('description', ''),
-                task_type=request.POST.get('task_type', Task.Type.SURVEY),
-                priority=request.POST.get('priority', Task.Priority.MEDIUM),
-                deadline=request.POST.get('deadline'),
-                created_by=request.user,
-            )
-
-            # Manzil targeting
-            region_id = request.POST.get('target_region')
-            district_id = request.POST.get('target_district')
-
-            if region_id:
-                task.target_region_id = region_id
-            if district_id:
-                task.target_district_id = district_id
-
-            task.save()
-
-            # Savollarni qo'shish
-            questions = request.POST.getlist('question_text[]')
-            question_types = request.POST.getlist('question_type[]')
-
-            for i, (text, q_type) in enumerate(zip(questions, question_types), 1):
-                if text.strip():
-                    Question.objects.create(
-                        task=task,
-                        order=i,
-                        text=text.strip(),
-                        question_type=q_type,
-                    )
-
-            messages.success(request, f"Vazifa '{task.title}' yaratildi!")
-            return redirect('tasks:task_detail', pk=task.pk)
-
-        except Exception as e:
-            messages.error(request, f"Xatolik: {str(e)}")
-
-    regions = Region.objects.filter(is_active=True)
-
-    context = {
-        'regions': regions,
-        'type_choices': Task.Type.choices,
-        'priority_choices': Task.Priority.choices,
-        'question_type_choices': Question.Type.choices,
-    }
-
-    return render(request, 'tasks/task_form.html', context)
 
 
 @login_required
 def task_detail(request, pk):
     """Vazifa tafsilotlari"""
+    task = get_object_or_404(Task.objects.select_related('created_by'), pk=pk)
 
-    task = get_object_or_404(Task, pk=pk)
+    columns = task.columns.all().order_by('order')
+    questions = task.questions.all().order_by('order')
 
-    # Savollar
-    questions = task.questions.order_by('order')
-
-    # Tayinlashlar
-    assignments = task.assignments.select_related('leader').order_by('-sent_at')
-
-    # Statistika
-    stats = {
-        'total': assignments.count(),
-        'pending': assignments.filter(status=TaskAssignment.Status.PENDING).count(),
-        'seen': assignments.filter(status=TaskAssignment.Status.SEEN).count(),
-        'in_progress': assignments.filter(status=TaskAssignment.Status.IN_PROGRESS).count(),
-        'completed': assignments.filter(status=TaskAssignment.Status.COMPLETED).count(),
-    }
+    assignments = task.assignments.select_related('leader', 'leader__mahalla', 'leader__district').all()
 
     # Pagination for assignments
     paginator = Paginator(assignments, 20)
     page = request.GET.get('page')
     assignments = paginator.get_page(page)
 
+    # Statistics
+    stats = {
+        'total': task.total_assigned,
+        'pending': task.assignments.filter(status=TaskAssignment.Status.PENDING).count(),
+        'viewed': task.assignments.filter(status=TaskAssignment.Status.VIEWED).count(),
+        'in_progress': task.assignments.filter(status=TaskAssignment.Status.IN_PROGRESS).count(),
+        'submitted': task.assignments.filter(status=TaskAssignment.Status.SUBMITTED).count(),
+        'approved': task.assignments.filter(status=TaskAssignment.Status.APPROVED).count(),
+        'rejected': task.assignments.filter(status=TaskAssignment.Status.REJECTED).count(),
+    }
+
     context = {
         'task': task,
+        'columns': columns,
         'questions': questions,
         'assignments': assignments,
         'stats': stats,
     }
-
     return render(request, 'tasks/task_detail.html', context)
+
+
+@login_required
+def task_create(request):
+    """Yangi vazifa yaratish"""
+    from accounts.models import Region, District
+
+    if request.method == 'POST':
+        # Asosiy ma'lumotlar
+        title = request.POST.get('title')
+        description = request.POST.get('description', '')
+        instructions = request.POST.get('instructions', '')
+        task_type = request.POST.get('type', 'table')
+        priority = request.POST.get('priority', 'medium')
+        deadline = request.POST.get('deadline')
+
+        # Targeting
+        target_all = request.POST.get('target_all') == 'on'
+        target_region_id = request.POST.get('target_region')
+        target_district_id = request.POST.get('target_district')
+
+        # Settings
+        requires_approval = request.POST.get('requires_approval') == 'on'
+        allow_multiple_rows = request.POST.get('allow_multiple_rows') == 'on'
+
+        # Vazifa yaratish
+        task = Task.objects.create(
+            title=title,
+            description=description,
+            instructions=instructions,
+            type=task_type,
+            priority=priority,
+            deadline=deadline,
+            target_all=target_all,
+            target_region_id=target_region_id if target_region_id else None,
+            target_district_id=target_district_id if target_district_id else None,
+            requires_approval=requires_approval,
+            allow_multiple_rows=allow_multiple_rows,
+            created_by=request.user
+        )
+
+        # Ustunlar (TABLE type)
+        if task_type == 'table':
+            column_titles = request.POST.getlist('column_title[]')
+            column_types = request.POST.getlist('column_type[]')
+
+            for i, (title, dtype) in enumerate(zip(column_titles, column_types)):
+                if title.strip():
+                    TaskColumn.objects.create(
+                        task=task,
+                        title=title.strip(),
+                        data_type=dtype,
+                        order=i + 1
+                    )
+
+        # Savollar (SURVEY type)
+        elif task_type == 'survey':
+            question_texts = request.POST.getlist('question_text[]')
+            question_types = request.POST.getlist('question_type[]')
+
+            for i, (text, qtype) in enumerate(zip(question_texts, question_types)):
+                if text.strip():
+                    TaskQuestion.objects.create(
+                        task=task,
+                        text=text.strip(),
+                        answer_type=qtype,
+                        order=i + 1
+                    )
+
+        # Tarix
+        TaskHistory.objects.create(
+            task=task,
+            action=TaskHistory.Action.CREATED,
+            actor=request.user,
+            description="Vazifa yaratildi"
+        )
+
+        messages.success(request, "Vazifa muvaffaqiyatli yaratildi!")
+        return redirect('tasks:task_detail', pk=task.pk)
+
+    context = {
+        'regions': Region.objects.filter(is_active=True),
+        'type_choices': Task.Type.choices,
+        'priority_choices': Task.Priority.choices,
+        'column_type_choices': TaskColumn.DataType.choices,
+        'question_type_choices': TaskQuestion.AnswerType.choices,
+    }
+    return render(request, 'tasks/task_form.html', context)
 
 
 @login_required
 def task_edit(request, pk):
     """Vazifani tahrirlash"""
+    from accounts.models import Region, District
 
     task = get_object_or_404(Task, pk=pk)
 
-    # Faqat qoralama vazifalarni tahrirlash mumkin
     if task.status != Task.Status.DRAFT:
-        messages.warning(request, "Faqat qoralama vazifalarni tahrirlash mumkin!")
+        messages.error(request, "Faqat qoralama vazifani tahrirlash mumkin!")
         return redirect('tasks:task_detail', pk=pk)
 
     if request.method == 'POST':
         task.title = request.POST.get('title')
         task.description = request.POST.get('description', '')
-        task.task_type = request.POST.get('task_type')
-        task.priority = request.POST.get('priority')
+        task.instructions = request.POST.get('instructions', '')
+        task.priority = request.POST.get('priority', 'medium')
         task.deadline = request.POST.get('deadline')
-
-        # Manzil
-        region_id = request.POST.get('target_region')
-        district_id = request.POST.get('target_district')
-
-        task.target_region_id = region_id if region_id else None
-        task.target_district_id = district_id if district_id else None
-
+        task.target_all = request.POST.get('target_all') == 'on'
+        task.target_region_id = request.POST.get('target_region') or None
+        task.target_district_id = request.POST.get('target_district') or None
+        task.requires_approval = request.POST.get('requires_approval') == 'on'
+        task.allow_multiple_rows = request.POST.get('allow_multiple_rows') == 'on'
         task.save()
 
-        # Savollarni yangilash — avval eskisini o'chirish
-        task.questions.all().delete()
+        # Ustunlarni yangilash (TABLE type)
+        if task.type == 'table':
+            task.columns.all().delete()
+            column_titles = request.POST.getlist('column_title[]')
+            column_types = request.POST.getlist('column_type[]')
 
-        questions = request.POST.getlist('question_text[]')
-        question_types = request.POST.getlist('question_type[]')
+            for i, (title, dtype) in enumerate(zip(column_titles, column_types)):
+                if title.strip():
+                    TaskColumn.objects.create(
+                        task=task,
+                        title=title.strip(),
+                        data_type=dtype,
+                        order=i + 1
+                    )
 
-        for i, (text, q_type) in enumerate(zip(questions, question_types), 1):
-            if text.strip():
-                Question.objects.create(
-                    task=task,
-                    order=i,
-                    text=text.strip(),
-                    question_type=q_type,
-                )
+        # Savollarni yangilash (SURVEY type)
+        elif task.type == 'survey':
+            task.questions.all().delete()
+            question_texts = request.POST.getlist('question_text[]')
+            question_types = request.POST.getlist('question_type[]')
+
+            for i, (text, qtype) in enumerate(zip(question_texts, question_types)):
+                if text.strip():
+                    TaskQuestion.objects.create(
+                        task=task,
+                        text=text.strip(),
+                        answer_type=qtype,
+                        order=i + 1
+                    )
 
         messages.success(request, "Vazifa yangilandi!")
-        return redirect('tasks:task_detail', pk=pk)
-
-    regions = Region.objects.filter(is_active=True)
-    questions = task.questions.order_by('order')
+        return redirect('tasks:task_detail', pk=task.pk)
 
     context = {
         'task': task,
-        'questions': questions,
-        'regions': regions,
+        'columns': task.columns.order_by('order'),
+        'questions': task.questions.order_by('order'),
+        'regions': Region.objects.filter(is_active=True),
+        'districts': District.objects.filter(region=task.target_region) if task.target_region else [],
         'type_choices': Task.Type.choices,
         'priority_choices': Task.Priority.choices,
-        'question_type_choices': Question.Type.choices,
+        'column_type_choices': TaskColumn.DataType.choices,
+        'question_type_choices': TaskQuestion.AnswerType.choices,
     }
-
     return render(request, 'tasks/task_form.html', context)
 
 
 @login_required
 def task_delete(request, pk):
     """Vazifani o'chirish"""
-
     task = get_object_or_404(Task, pk=pk)
 
     if request.method == 'POST':
-        title = task.title
         task.delete()
-        messages.success(request, f"Vazifa '{title}' o'chirildi!")
+        messages.success(request, "Vazifa o'chirildi!")
         return redirect('tasks:task_list')
 
-    context = {
-        'task': task,
-    }
-
-    return render(request, 'tasks/task_delete.html', context)
+    return render(request, 'tasks/task_delete.html', {'task': task})
 
 
 @login_required
 def task_publish(request, pk):
     """Vazifani e'lon qilish"""
-
     task = get_object_or_404(Task, pk=pk)
 
-    if task.status != Task.Status.DRAFT:
-        messages.warning(request, "Bu vazifa allaqachon e'lon qilingan!")
-        return redirect('tasks:task_detail', pk=pk)
-
-    if task.questions.count() == 0:
-        messages.error(request, "Vazifada kamida 1 ta savol bo'lishi kerak!")
-        return redirect('tasks:task_detail', pk=pk)
-
     if request.method == 'POST':
-        if task.publish():
-            messages.success(request, f"Vazifa e'lon qilindi! {task.stats_total_assigned} ta yetakchiga yuborildi.")
+        success, message = task.publish(request.user)
+
+        if success:
+            messages.success(request, message)
         else:
-            messages.error(request, "Vazifani e'lon qilishda xatolik!")
+            messages.error(request, message)
 
         return redirect('tasks:task_detail', pk=pk)
 
-    # E'lon qilishdan oldin ma'lumot ko'rsatish
-    target_leaders = task.get_target_leaders()
+    # Preview
+    target_leaders = task.get_target_leaders()[:20]
+    target_leaders_count = task.get_target_leaders().count()
 
     context = {
         'task': task,
-        'target_leaders_count': target_leaders.count(),
-        'target_leaders': target_leaders[:20],  # Birinchi 20 tasi
+        'target_leaders': target_leaders,
+        'target_leaders_count': target_leaders_count,
     }
-
     return render(request, 'tasks/task_publish.html', context)
 
 
 @login_required
 def task_results(request, pk):
     """Vazifa natijalari"""
-
     task = get_object_or_404(Task, pk=pk)
 
-    # Barcha javoblar
     assignments = task.assignments.filter(
-        status=TaskAssignment.Status.COMPLETED
-    ).select_related('leader').prefetch_related('answers__question')
+        status__in=[TaskAssignment.Status.SUBMITTED, TaskAssignment.Status.APPROVED]
+    ).select_related('leader', 'leader__mahalla', 'leader__district')
 
+    columns = task.columns.order_by('order')
     questions = task.questions.order_by('order')
 
-    # Jadval uchun ma'lumot
     results = []
     for assignment in assignments:
         row = {
             'leader': assignment.leader,
-            'completed_at': assignment.completed_at,
+            'completed_at': assignment.submitted_at,
+            'status': assignment.status,
             'answers': {}
         }
 
-        for answer in assignment.answers.all():
-            row['answers'][answer.question.order] = answer.display_value
+        for response in assignment.responses.all():
+            if response.column:
+                row['answers'][response.column.order] = response.display_value
+            elif response.question:
+                row['answers'][response.question.order] = response.display_value
 
         results.append(row)
 
     context = {
         'task': task,
+        'columns': columns,
         'questions': questions,
         'results': results,
     }
-
     return render(request, 'tasks/task_results.html', context)
 
 
 @login_required
 def task_export(request, pk):
-    """Natijalarni Excel ga export qilish"""
-
+    """Natijalarni Excel ga eksport"""
     task = get_object_or_404(Task, pk=pk)
 
-    # Excel yaratish
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Natijalar"
 
-    # Stillar
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
-    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
-
     # Sarlavha
-    questions = task.questions.order_by('order')
+    headers = ['№', 'Yetakchi', 'Mahalla', 'Tuman', 'Telefon']
 
-    headers = ['№', 'Yetakchi', 'Mahalla', 'Telefon']
-    headers += [q.text for q in questions]
-    headers += ['Bajarilgan vaqt']
+    if task.type == Task.Type.TABLE:
+        for column in task.columns.order_by('order'):
+            headers.append(column.title)
+    elif task.type == Task.Type.SURVEY:
+        for question in task.questions.order_by('order'):
+            headers.append(question.text[:50])
 
+    headers.extend(['Holat', 'Yuborilgan vaqt'])
+
+    # Sarlavha yozish
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_alignment
-        cell.border = thin_border
+        cell.font = openpyxl.styles.Font(bold=True)
+        cell.fill = openpyxl.styles.PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        cell.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
 
     # Ma'lumotlar
-    assignments = task.assignments.filter(
-        status=TaskAssignment.Status.COMPLETED
-    ).select_related('leader', 'leader__mahalla').prefetch_related('answers__question')
+    assignments = task.assignments.select_related(
+        'leader', 'leader__mahalla', 'leader__district'
+    ).prefetch_related('responses')
 
     for row_num, assignment in enumerate(assignments, 2):
-        # Asosiy ma'lumotlar
-        ws.cell(row=row_num, column=1, value=row_num - 1).border = thin_border
-        ws.cell(row=row_num, column=2, value=assignment.leader.get_full_name()).border = thin_border
-        ws.cell(row=row_num, column=3, value=str(assignment.leader.mahalla or '-')).border = thin_border
-        ws.cell(row=row_num, column=4, value=assignment.leader.phone or '-').border = thin_border
+        ws.cell(row=row_num, column=1, value=row_num - 1)
+        ws.cell(row=row_num, column=2, value=assignment.leader.get_full_name())
+        ws.cell(row=row_num, column=3, value=str(assignment.leader.mahalla) if assignment.leader.mahalla else '')
+        ws.cell(row=row_num, column=4, value=str(assignment.leader.district) if assignment.leader.district else '')
+        ws.cell(row=row_num, column=5, value=assignment.leader.phone or '')
 
-        # Javoblar
-        answers_dict = {a.question.order: a.display_value for a in assignment.answers.all()}
+        col_num = 6
+        if task.type == Task.Type.TABLE:
+            for column in task.columns.order_by('order'):
+                response = assignment.responses.filter(column=column).first()
+                value = response.display_value if response else ''
+                ws.cell(row=row_num, column=col_num, value=value)
+                col_num += 1
+        elif task.type == Task.Type.SURVEY:
+            for question in task.questions.order_by('order'):
+                response = assignment.responses.filter(question=question).first()
+                value = response.display_value if response else ''
+                ws.cell(row=row_num, column=col_num, value=value)
+                col_num += 1
 
-        for i, question in enumerate(questions):
-            col = 5 + i
-            value = answers_dict.get(question.order, '-')
-            ws.cell(row=row_num, column=col, value=value).border = thin_border
+        ws.cell(row=row_num, column=col_num, value=assignment.get_status_display())
+        ws.cell(row=row_num, column=col_num + 1,
+                value=assignment.submitted_at.strftime('%d.%m.%Y %H:%M') if assignment.submitted_at else '')
 
-        # Vaqt
-        completed = assignment.completed_at.strftime('%d.%m.%Y %H:%M') if assignment.completed_at else '-'
-        ws.cell(row=row_num, column=len(headers), value=completed).border = thin_border
-
-    # Ustun kengligini sozlash
-    for col in range(1, len(headers) + 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 18
+    # Ustun kengligi
+    for col in ws.columns:
+        max_length = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
 
     # Response
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = f'attachment; filename="{task.title}_natijalar.xlsx"'
-
     wb.save(response)
     return response
