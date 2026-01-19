@@ -886,7 +886,7 @@ class TaskResponse(models.Model):
         dtype = self.data_type
 
         if dtype == 'boolean':
-            return _('Ha') if val else _("Yo'q")
+            return 'Ha' if val else "Yo'q"
         elif dtype == 'date' and val:
             return val.strftime('%d.%m.%Y')
         elif dtype == 'datetime' and val:
