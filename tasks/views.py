@@ -292,27 +292,45 @@ def task_results(request, pk):
     """Vazifa natijalari"""
     task = get_object_or_404(Task, pk=pk)
 
+    # Faqat yuborilgan va tasdiqlangan assignmentlar
     assignments = task.assignments.filter(
-        status__in=[TaskAssignment.Status.SUBMITTED, TaskAssignment.Status.APPROVED]
-    ).select_related('leader', 'leader__mahalla', 'leader__district')
+        status__in=[
+            TaskAssignment.Status.SUBMITTED,
+            TaskAssignment.Status.APPROVED,
+            TaskAssignment.Status.REJECTED
+        ]
+    ).select_related(
+        'leader',
+        'leader__mahalla',
+        'leader__district'
+    ).prefetch_related('responses', 'responses__column', 'responses__question')
 
-    columns = task.columns.order_by('order')
-    questions = task.questions.order_by('order')
+    columns = list(task.columns.order_by('order'))
+    questions = list(task.questions.order_by('order'))
 
     results = []
     for assignment in assignments:
         row = {
+            'assignment': assignment,
             'leader': assignment.leader,
-            'completed_at': assignment.submitted_at,
             'status': assignment.status,
+            'submitted_at': assignment.submitted_at,
             'answers': {}
         }
 
+        # Javoblarni to'plash
         for response in assignment.responses.all():
             if response.column:
-                row['answers'][response.column.order] = response.display_value
+                # Table type - column order bo'yicha
+                key = f"col_{response.column.order}_{response.row_index}"
+                row['answers'][key] = response.display_value
             elif response.question:
-                row['answers'][response.question.order] = response.display_value
+                # Survey type - question order bo'yicha
+                key = f"q_{response.question.order}"
+                row['answers'][key] = response.display_value
+            else:
+                # Report type
+                row['answers']['report'] = response.value_text
 
         results.append(row)
 
@@ -321,6 +339,7 @@ def task_results(request, pk):
         'columns': columns,
         'questions': questions,
         'results': results,
+        'assignments': assignments,
     }
     return render(request, 'tasks/task_results.html', context)
 

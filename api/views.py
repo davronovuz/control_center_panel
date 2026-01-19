@@ -1,11 +1,11 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 import json
 
 from accounts.models import Region, District, Mahalla
-from tasks.models import TaskAssignment, TaskResponse, TaskColumn, TaskQuestion
+from tasks.models import Task, TaskAssignment, TaskResponse, TaskColumn, TaskQuestion
 
 
 @login_required
@@ -43,67 +43,115 @@ def get_mahallas(request):
 def task_auto_save(request, pk):
     """Vazifa javoblarini avtomatik saqlash"""
     try:
-        assignment = TaskAssignment.objects.get(pk=pk, leader=request.user)
+        assignment = TaskAssignment.objects.select_related('task').get(
+            pk=pk,
+            leader=request.user
+        )
 
         if not assignment.can_edit:
-            return JsonResponse({'success': False, 'error': 'Tahrirlash mumkin emas'})
+            return JsonResponse({
+                'success': False,
+                'error': 'Tahrirlash mumkin emas'
+            })
 
         task = assignment.task
+        saved_count = 0
 
-        # Table type
-        if task.type == 'table':
-            for column in task.columns.all():
-                for row_index in range(100):  # Max 100 rows
-                    field_name = f'col_{column.pk}_{row_index}'
-                    value = request.POST.get(field_name)
+        # TABLE type
+        if task.type == Task.Type.TABLE:
+            columns = task.columns.all()
 
-                    if value is not None:
-                        response, created = TaskResponse.objects.get_or_create(
-                            assignment=assignment,
-                            column=column,
-                            row_index=row_index
-                        )
-                        response.set_value(value)
+            for key, value in request.POST.items():
+                if key.startswith('col_') and value:
+                    parts = key.split('_')
+                    if len(parts) >= 3:
+                        try:
+                            column_id = parts[1]
+                            row_index = int(parts[2])
 
-        # Survey type
-        elif task.type == 'survey':
-            for question in task.questions.all():
-                field_name = f'q_{question.pk}'
-                value = request.POST.get(field_name)
+                            column = columns.filter(pk=column_id).first()
+                            if column:
+                                response, created = TaskResponse.objects.update_or_create(
+                                    assignment=assignment,
+                                    column=column,
+                                    row_index=row_index,
+                                    defaults={'question': None}
+                                )
+                                response.set_value(value)
+                                saved_count += 1
+                        except (ValueError, IndexError) as e:
+                            print(f"Error parsing column key {key}: {e}")
+                            continue
 
-                if value is not None:
-                    response, created = TaskResponse.objects.get_or_create(
-                        assignment=assignment,
-                        question=question,
-                        row_index=0
-                    )
-                    response.set_value(value)
+        # SURVEY type
+        elif task.type == Task.Type.SURVEY:
+            questions = task.questions.all()
 
-        # Report type
-        elif task.type == 'report':
-            value = request.POST.get('report_text')
-            if value:
-                response, created = TaskResponse.objects.get_or_create(
+            for key, value in request.POST.items():
+                if key.startswith('q_') and value:
+                    try:
+                        question_id = key.replace('q_', '')
+
+                        question = questions.filter(pk=question_id).first()
+                        if question:
+                            # Multiple choice (checkbox) uchun
+                            if question.answer_type == 'multiple':
+                                values = request.POST.getlist(key)
+                                response, created = TaskResponse.objects.update_or_create(
+                                    assignment=assignment,
+                                    question=question,
+                                    row_index=0,
+                                    defaults={'column': None}
+                                )
+                                response.value_json = values
+                                response.save()
+                            else:
+                                response, created = TaskResponse.objects.update_or_create(
+                                    assignment=assignment,
+                                    question=question,
+                                    row_index=0,
+                                    defaults={'column': None}
+                                )
+                                response.set_value(value)
+                            saved_count += 1
+                    except Exception as e:
+                        print(f"Error parsing question key {key}: {e}")
+                        continue
+
+        # REPORT type
+        elif task.type == Task.Type.REPORT:
+            report_text = request.POST.get('report_text', '')
+            if report_text:
+                response, created = TaskResponse.objects.update_or_create(
                     assignment=assignment,
-                    row_index=0,
                     column=None,
-                    question=None
+                    question=None,
+                    row_index=0
                 )
-                response.value_text = value
+                response.value_text = report_text
                 response.save()
+                saved_count += 1
 
         # Update progress
         assignment.update_progress()
 
         return JsonResponse({
             'success': True,
+            'saved_count': saved_count,
             'progress': assignment.progress
         })
 
     except TaskAssignment.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Vazifa topilmadi'})
+        return JsonResponse({
+            'success': False,
+            'error': 'Vazifa topilmadi'
+        })
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        print(f"Auto-save error: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
 
 @login_required
@@ -123,11 +171,6 @@ def get_notifications(request):
         })
 
     return JsonResponse({
-        'count': request.user.unread_notifications_count,
+        'count': request.user.notifications.filter(is_read=False).count(),
         'notifications': data
     })
-
-
-from django.shortcuts import render
-
-# Create your views here.
