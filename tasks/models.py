@@ -899,8 +899,8 @@ class TaskResponse(models.Model):
         return str(val)
 
     def set_value(self, value):
-        dtype = self.data_type
-
+        """Qiymatni saqlash - soddalashtirilgan"""
+        # Barcha qiymatlarni tozalash
         self.value_text = None
         self.value_number = None
         self.value_date = None
@@ -910,8 +910,11 @@ class TaskResponse(models.Model):
         self.value_json = None
 
         if value is None or value == '':
-            self.save()
+            self.save(update_fields=['value_text', 'value_number', 'value_date', 'value_datetime', 'value_boolean',
+                                     'value_choice', 'value_json', 'updated_at'])
             return
+
+        dtype = self.data_type
 
         try:
             if dtype in ['text', 'textarea', 'phone', 'email', 'url']:
@@ -941,14 +944,15 @@ class TaskResponse(models.Model):
                 if isinstance(value, list):
                     self.value_json = value
                 else:
-                    self.value_json = [value]
+                    self.value_json = [str(value)]
             else:
                 self.value_text = str(value)
         except Exception:
             self.value_text = str(value)
 
-        self.validate()
-        self.save()
+        # validate() ni chaqirmasdan saqlash
+        self.save(update_fields=['value_text', 'value_number', 'value_date', 'value_datetime', 'value_boolean',
+                                 'value_choice', 'value_json', 'updated_at'])
 
     def validate(self):
         errors = []
@@ -961,7 +965,9 @@ class TaskResponse(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        self.assignment.update_progress()
+        # update_progress ni faqat yangi response da chaqirish
+        if not kwargs.get('update_fields'):
+            self.assignment.update_progress()
 
 
 class TaskHistory(models.Model):
