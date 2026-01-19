@@ -292,54 +292,41 @@ def task_results(request, pk):
     """Vazifa natijalari"""
     task = get_object_or_404(Task, pk=pk)
 
-    # Faqat yuborilgan va tasdiqlangan assignmentlar
+    # Faqat yuborilgan assignmentlar
     assignments = task.assignments.filter(
-        status__in=[
-            TaskAssignment.Status.SUBMITTED,
-            TaskAssignment.Status.APPROVED,
-            TaskAssignment.Status.REJECTED
-        ]
-    ).select_related(
-        'leader',
-        'leader__mahalla',
-        'leader__district'
-    ).prefetch_related('responses', 'responses__column', 'responses__question')
+        status__in=['submitted', 'approved', 'rejected']
+    ).select_related('leader', 'leader__mahalla', 'leader__district')
 
     columns = list(task.columns.order_by('order'))
     questions = list(task.questions.order_by('order'))
 
     results = []
     for assignment in assignments:
-        row = {
+        # Har bir assignment uchun javoblarni yig'ish
+        answers = {}
+
+        for response in assignment.responses.all():
+            if response.column:
+                # Column ID bo'yicha saqlash
+                answers[str(response.column.pk)] = response.display_value
+            elif response.question:
+                answers[str(response.question.pk)] = response.display_value
+            else:
+                answers['report'] = response.value_text
+
+        results.append({
             'assignment': assignment,
             'leader': assignment.leader,
             'status': assignment.status,
             'submitted_at': assignment.submitted_at,
-            'answers': {}
-        }
-
-        # Javoblarni to'plash
-        for response in assignment.responses.all():
-            if response.column:
-                # Table type - column order bo'yicha
-                key = f"col_{response.column.order}_{response.row_index}"
-                row['answers'][key] = response.display_value
-            elif response.question:
-                # Survey type - question order bo'yicha
-                key = f"q_{response.question.order}"
-                row['answers'][key] = response.display_value
-            else:
-                # Report type
-                row['answers']['report'] = response.value_text
-
-        results.append(row)
+            'answers': answers,
+        })
 
     context = {
         'task': task,
         'columns': columns,
         'questions': questions,
         'results': results,
-        'assignments': assignments,
     }
     return render(request, 'tasks/task_results.html', context)
 

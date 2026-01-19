@@ -10,13 +10,14 @@ def get_item(dictionary, key):
         return None
 
     if isinstance(dictionary, dict):
+        # String key bilan qidirish
+        result = dictionary.get(str(key))
+        if result is not None:
+            return result
+        # Original key bilan qidirish
         return dictionary.get(key)
 
-    # Agar dict bo'lmasa, attribute sifatida olishga harakat qilish
-    try:
-        return getattr(dictionary, key, None)
-    except:
-        return None
+    return None
 
 
 @register.filter

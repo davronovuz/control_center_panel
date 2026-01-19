@@ -89,81 +89,64 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for result in results %}
-                        <tr>
-                            <td class="text-center text-muted">{{ forloop.counter }}</td>
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="table-user-avatar" style="width: 35px; height: 35px; font-size: 12px; background: linear-gradient(135deg, #4CAF50, #7CB342); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                        {{ result.leader.first_name|slice:":1" }}{{ result.leader.last_name|slice:":1" }}
-                                    </div>
-                                    <div>
-                                        <div class="fw-semibold">{{ result.leader.get_full_name }}</div>
-                                        <small class="text-muted">{{ result.leader.phone|default:"" }}</small>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div>{{ result.leader.mahalla|default:"—" }}</div>
-                                <small class="text-muted">{{ result.leader.district|default:"" }}</small>
-                            </td>
+    {% for result in results %}
+    <tr>
+        <td class="text-center text-muted">{{ forloop.counter }}</td>
+        <td>
+            <div class="d-flex align-items-center gap-2">
+                <div class="table-user-avatar" style="width: 35px; height: 35px; font-size: 12px; background: linear-gradient(135deg, #4CAF50, #7CB342); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                    {{ result.leader.first_name|slice:":1" }}{{ result.leader.last_name|slice:":1" }}
+                </div>
+                <div>
+                    <div class="fw-semibold">{{ result.leader.get_full_name }}</div>
+                    <small class="text-muted">{{ result.leader.phone|default:"" }}</small>
+                </div>
+            </div>
+        </td>
+        <td>
+            <div>{{ result.leader.mahalla|default:"—" }}</div>
+            <small class="text-muted">{{ result.leader.district|default:"" }}</small>
+        </td>
 
-                            {% if task.type == 'table' %}
-                                {% for col in columns %}
-                                <td>
-                                    {% with key="col_"|add:col.order|stringformat:"s"|add:"_0" %}
-                                        {{ result.answers|get_item:key|default:"—" }}
-                                    {% endwith %}
-                                </td>
-                                {% endfor %}
-                            {% elif task.type == 'survey' %}
-                                {% for q in questions %}
-                                <td>
-                                    {% with key="q_"|add:q.order|stringformat:"s" %}
-                                        {{ result.answers|get_item:key|default:"—" }}
-                                    {% endwith %}
-                                </td>
-                                {% endfor %}
-                            {% elif task.type == 'report' %}
-                                <td>
-                                    <div class="text-truncate" style="max-width: 300px;" title="{{ result.answers.report|default:'' }}">
-                                        {{ result.answers.report|default:"—"|truncatechars:100 }}
-                                    </div>
-                                </td>
-                            {% endif %}
+        {% if task.type == 'table' %}
+            {% for col in columns %}
+            <td>{{ result.answers|get_item:col.pk|default:"—" }}</td>
+            {% endfor %}
+        {% elif task.type == 'survey' %}
+            {% for q in questions %}
+            <td>{{ result.answers|get_item:q.pk|default:"—" }}</td>
+            {% endfor %}
+        {% elif task.type == 'report' %}
+            <td>{{ result.answers.report|default:"—"|truncatechars:100 }}</td>
+        {% endif %}
 
-                            <td>
-                                {% if result.status == 'approved' %}
-                                <span class="badge bg-success">Tasdiqlangan</span>
-                                {% elif result.status == 'submitted' %}
-                                <span class="badge bg-primary">Yuborilgan</span>
-                                {% elif result.status == 'rejected' %}
-                                <span class="badge bg-danger">Rad etilgan</span>
-                                {% else %}
-                                <span class="badge bg-secondary">{{ result.status }}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if result.submitted_at %}
-                                <span>{{ result.submitted_at|date:"d.m.Y" }}</span>
-                                <small class="text-muted d-block">{{ result.submitted_at|date:"H:i" }}</small>
-                                {% else %}
-                                <span class="text-muted">—</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="20" class="text-center py-5">
-                                <div class="text-muted">
-                                    <i class="bi bi-inbox fs-1 d-block mb-3"></i>
-                                    <h5>Hali natijalar yo'q</h5>
-                                    <p class="mb-0">Yetakchilar vazifani bajarganida natijalar shu yerda ko'rinadi</p>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
+        <td>
+            {% if result.status == 'approved' %}
+            <span class="badge bg-success">Tasdiqlangan</span>
+            {% elif result.status == 'submitted' %}
+            <span class="badge bg-primary">Yuborilgan</span>
+            {% elif result.status == 'rejected' %}
+            <span class="badge bg-danger">Rad etilgan</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if result.submitted_at %}
+            <span>{{ result.submitted_at|date:"d.m.Y" }}</span>
+            <small class="text-muted d-block">{{ result.submitted_at|date:"H:i" }}</small>
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="20" class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+            Hali natijalar yo'q
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
                 </table>
             </div>
         </div>
