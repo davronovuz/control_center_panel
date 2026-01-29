@@ -1,0 +1,126 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+
+    <!-- Sarlavha -->
+    <div style="background: linear-gradient(135deg, #1F4E79 0%, #2E75B6 100%); color: white; padding: 25px; border-radius: 10px; margin-bottom: 25px;">
+        <h1 style="margin: 0; font-size: 24px;">📥 JSON dan yetakchilarni import qilish</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.9;">Bir nechta mahalla yetakchilarini birdaniga qo'shish</p>
+    </div>
+
+    <!-- Namuna JSON -->
+    <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+        <h3 style="margin-top: 0; color: #495057;">📋 JSON fayl formati</h3>
+        <p style="color: #6c757d; margin-bottom: 15px;">JSON fayl quyidagi formatda bo'lishi kerak:</p>
+
+        <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 13px;">[
+  {
+    "first_name": "Shermat",
+    "last_name": "Shermatov",
+    "middle_name": "Shermatovich",
+    "phone": "+998901234567",
+    "email": "shermat@example.com",
+    "region_name": "Toshkent shahri",
+    "district_name": "Chilonzor tumani",
+    "mahalla_name": "Tinchlik MFY"
+  },
+  {
+    "first_name": "Olim",
+    "last_name": "Olimov",
+    ...
+  }
+]</pre>
+
+        <div style="margin-top: 15px;">
+            <a href="{% url 'admin:user_download_sample_json' %}"
+               style="display: inline-block; background: #28a745; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 500;">
+                📥 Namuna JSON yuklab olish
+            </a>
+        </div>
+    </div>
+
+    <!-- Maydonlar haqida -->
+    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+        <h3 style="margin-top: 0; color: #856404;">⚠️ Muhim ma'lumot</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;"><strong>first_name</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;">Ism (majburiy)</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;"><strong>last_name</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;">Familiya (majburiy)</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;"><strong>middle_name</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;">Otasining ismi (ixtiyoriy)</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;"><strong>phone</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;">Telefon: +998XXXXXXXXX (ixtiyoriy, unikal)</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;"><strong>region_name</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;">Viloyat nomi (bazada mavjud bo'lishi kerak)</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;"><strong>district_name</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #ffc107;">Tuman nomi (bazada mavjud bo'lishi kerak)</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px;"><strong>mahalla_name</strong></td>
+                <td style="padding: 8px;">Mahalla nomi (bazada mavjud bo'lishi kerak)</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Import formasi -->
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 25px;">
+        <h3 style="margin-top: 0; color: #1F4E79;">📤 Fayl yuklash</h3>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div style="margin-bottom: 20px;">
+                <label for="id_json_file" style="display: block; font-weight: 600; margin-bottom: 8px; color: #495057;">
+                    JSON fayl tanlang:
+                </label>
+                <input type="file"
+                       name="json_file"
+                       id="id_json_file"
+                       accept=".json"
+                       required
+                       style="width: 100%; padding: 12px; border: 2px dashed #dee2e6; border-radius: 6px; background: #f8f9fa;">
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label for="id_generate_password_length" style="display: block; font-weight: 600; margin-bottom: 8px; color: #495057;">
+                    Parol uzunligi:
+                </label>
+                <input type="number"
+                       name="generate_password_length"
+                       id="id_generate_password_length"
+                       value="8"
+                       min="6"
+                       max="20"
+                       style="width: 100px; padding: 10px; border: 1px solid #dee2e6; border-radius: 6px;">
+                <span style="color: #6c757d; margin-left: 10px;">6-20 belgidan</span>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="submit"
+                        style="background: linear-gradient(135deg, #1F4E79 0%, #2E75B6 100%); color: white; padding: 12px 30px; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                    🚀 Import qilish
+                </button>
+                <a href="{% url 'admin:accounts_user_changelist' %}"
+                   style="background: #6c757d; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+                    ← Orqaga
+                </a>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

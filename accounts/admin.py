@@ -1,615 +1,567 @@
-from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.utils.translation import gettext_lazy as _
-from django.utils.html import format_html
-from django.utils import timezone
-from django.http import HttpResponse
-from django.db.models import Count, Q
+"""
+Django Admin - Mahalla yetakchilarini JSON dan import qilish
+Login/Parol generatsiya qilish va Excel yuklab olish
+
+Bu faylni admin.py ga qo'shing yoki alohida fayl qilib import qiling
+"""
+
 import json
-import openpyxl
+import csv
+import io
+from datetime import datetime
 
-from .models import Region, District, Mahalla, User, Notification, Announcement
+from django.contrib import admin, messages
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.hashers import make_password
+from django.http import HttpResponse, HttpResponseRedirect
+from django.shortcuts import render
+from django.urls import path, reverse
+from django.utils.html import format_html
+from django import forms
+
+# Modellarni import qiling (o'zingizning app nomingizga moslashtiring)
+from .models import User, Region, District, Mahalla, Notification, Announcement
 
 
-# ============================================================
-# LOCATION ADMINS
-# ============================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# JSON IMPORT FORMASI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class JSONImportForm(forms.Form):
+    """JSON fayl yuklash formasi"""
+    json_file = forms.FileField(
+        label="JSON fayl",
+        help_text="Yetakchilar ro'yxati bo'lgan JSON fayl yuklang"
+    )
+
+    generate_password_length = forms.IntegerField(
+        label="Parol uzunligi",
+        initial=8,
+        min_value=6,
+        max_value=20,
+        help_text="Generatsiya qilinadigan parol uzunligi"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# USER ADMIN - KENGAYTIRILGAN
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    """Foydalanuvchi admin - JSON import bilan"""
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # ASOSIY SOZLAMALAR
+    # ─────────────────────────────────────────────────────────────────────────
+
+    list_display = [
+        'username', 'full_name_display', 'role', 'status',
+        'mahalla_display', 'phone', 'plain_password_display', 'created_at'
+    ]
+    list_filter = ['role', 'status', 'region', 'district', 'created_at']
+    search_fields = ['username', 'first_name', 'last_name', 'phone', 'mahalla__name']
+    ordering = ['-created_at']
+
+    list_per_page = 50
+
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Shaxsiy ma\'lumotlar', {'fields': ('first_name', 'last_name', 'middle_name', 'phone', 'email')}),
+        ('Joylashuv', {'fields': ('region', 'district', 'mahalla')}),
+        ('Rol va holat', {'fields': ('role', 'status')}),
+        ('Parol', {'fields': ('plain_password', 'must_change_password')}),
+        ('Ruxsatlar', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+    )
+
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'password1', 'password2', 'first_name', 'last_name',
+                       'phone', 'role', 'region', 'district', 'mahalla'),
+        }),
+    )
+
+    readonly_fields = ['plain_password_display', 'created_at', 'updated_at']
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CUSTOM DISPLAY METHODS
+    # ─────────────────────────────────────────────────────────────────────────
+
+    @admin.display(description='F.I.O')
+    def full_name_display(self, obj):
+        return obj.full_name or '-'
+
+    @admin.display(description='Mahalla')
+    def mahalla_display(self, obj):
+        if obj.mahalla:
+            return obj.mahalla.name
+        return '-'
+
+    @admin.display(description='Parol (ochiq)')
+    def plain_password_display(self, obj):
+        if obj.plain_password:
+            return format_html(
+                '<code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;">{}</code>',
+                obj.plain_password
+            )
+        return '-'
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CUSTOM URLS
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('import-json/', self.admin_site.admin_view(self.import_json_view), name='user_import_json'),
+            path('export-credentials/', self.admin_site.admin_view(self.export_credentials_view),
+                 name='user_export_credentials'),
+            path('download-sample-json/', self.admin_site.admin_view(self.download_sample_json),
+                 name='user_download_sample_json'),
+        ]
+        return custom_urls + urls
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CHANGE LIST - TUGMALAR QO'SHISH
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['show_import_button'] = True
+        extra_context['show_export_button'] = True
+        return super().changelist_view(request, extra_context=extra_context)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # JSON IMPORT VIEW
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def import_json_view(self, request):
+        """JSON fayldan yetakchilarni import qilish"""
+
+        if request.method == 'POST':
+            form = JSONImportForm(request.POST, request.FILES)
+
+            if form.is_valid():
+                json_file = request.FILES['json_file']
+                password_length = form.cleaned_data['generate_password_length']
+
+                try:
+                    # JSON o'qish
+                    file_content = json_file.read().decode('utf-8')
+                    data = json.loads(file_content)
+
+                    if not isinstance(data, list):
+                        messages.error(request, "JSON fayl ro'yxat formatida bo'lishi kerak!")
+                        return HttpResponseRedirect(request.path)
+
+                    # Import natijalarini saqlash
+                    created_users = []
+                    errors = []
+
+                    for index, item in enumerate(data, start=1):
+                        try:
+                            result = self._create_user_from_json(item, password_length, request.user)
+                            if result['success']:
+                                created_users.append(result['user_data'])
+                            else:
+                                errors.append(f"Qator {index}: {result['error']}")
+                        except Exception as e:
+                            errors.append(f"Qator {index}: {str(e)}")
+
+                    # Natijalarni session ga saqlash (export uchun)
+                    if created_users:
+                        request.session['imported_users'] = created_users
+                        messages.success(
+                            request,
+                            f"✅ {len(created_users)} ta yetakchi muvaffaqiyatli qo'shildi!"
+                        )
+
+                    if errors:
+                        error_text = "<br>".join(errors[:10])
+                        if len(errors) > 10:
+                            error_text += f"<br>... va yana {len(errors) - 10} ta xato"
+                        messages.warning(request, format_html(f"⚠️ Xatolar:<br>{error_text}"))
+
+                    # Export sahifasiga yo'naltirish
+                    if created_users:
+                        return HttpResponseRedirect(reverse('admin:user_export_credentials'))
+
+                except json.JSONDecodeError as e:
+                    messages.error(request, f"JSON format xatosi: {str(e)}")
+                except Exception as e:
+                    messages.error(request, f"Xatolik: {str(e)}")
+
+                return HttpResponseRedirect(request.path)
+        else:
+            form = JSONImportForm()
+
+        context = {
+            'form': form,
+            'title': 'JSON dan yetakchilarni import qilish',
+            'opts': self.model._meta,
+            'has_change_permission': True,
+        }
+
+        return render(request, 'admin/user_import_json.html', context)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # USER YARATISH (JSON dan)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _create_user_from_json(self, item, password_length, created_by):
+        """Bitta yetakchini JSON dan yaratish"""
+
+        # Majburiy maydonlar
+        first_name = item.get('first_name', '').strip()
+        last_name = item.get('last_name', '').strip()
+
+        if not first_name or not last_name:
+            return {'success': False, 'error': 'first_name va last_name majburiy'}
+
+        # Ixtiyoriy maydonlar
+        middle_name = item.get('middle_name', '').strip()
+        phone = item.get('phone', '').strip()
+        email = item.get('email', '').strip()
+
+        # Joylashuv
+        region_name = item.get('region_name', '').strip() or item.get('region', '').strip()
+        district_name = item.get('district_name', '').strip() or item.get('district', '').strip()
+        mahalla_name = item.get('mahalla_name', '').strip() or item.get('mahalla', '').strip()
+
+        # Region topish
+        region = None
+        if region_name:
+            region = Region.objects.filter(name__iexact=region_name, is_active=True).first()
+            if not region:
+                # Qisman mos kelishni tekshirish
+                region = Region.objects.filter(name__icontains=region_name, is_active=True).first()
+
+        # District topish
+        district = None
+        if district_name:
+            district_qs = District.objects.filter(name__iexact=district_name, is_active=True)
+            if region:
+                district_qs = district_qs.filter(region=region)
+            district = district_qs.first()
+
+            if not district:
+                # Qisman mos kelishni tekshirish
+                district_qs = District.objects.filter(name__icontains=district_name, is_active=True)
+                if region:
+                    district_qs = district_qs.filter(region=region)
+                district = district_qs.first()
+
+            # Districtdan regionni olish
+            if district and not region:
+                region = district.region
+
+        # Mahalla topish
+        mahalla = None
+        if mahalla_name:
+            mahalla_qs = Mahalla.objects.filter(name__iexact=mahalla_name, is_active=True)
+            if district:
+                mahalla_qs = mahalla_qs.filter(district=district)
+            mahalla = mahalla_qs.first()
+
+            if not mahalla:
+                # Qisman mos kelishni tekshirish
+                mahalla_qs = Mahalla.objects.filter(name__icontains=mahalla_name, is_active=True)
+                if district:
+                    mahalla_qs = mahalla_qs.filter(district=district)
+                mahalla = mahalla_qs.first()
+
+            # Mahalladan district va regionni olish
+            if mahalla:
+                if not district:
+                    district = mahalla.district
+                if not region:
+                    region = mahalla.district.region
+
+        # Telefon raqamni tekshirish (dublikat)
+        if phone:
+            if User.objects.filter(phone=phone).exists():
+                return {'success': False, 'error': f'Bu telefon raqam allaqachon mavjud: {phone}'}
+
+        # Username generatsiya
+        username = User.generate_username(first_name, last_name)
+
+        # Parol generatsiya
+        plain_password = User.generate_password(password_length)
+
+        # User yaratish
+        user = User(
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            middle_name=middle_name,
+            phone=phone if phone else None,
+            email=email if email else None,
+            region=region,
+            district=district,
+            mahalla=mahalla,
+            role=User.Role.LEADER,
+            status=User.Status.ACTIVE,
+            plain_password=plain_password,
+            must_change_password=True,
+            created_by=created_by,
+        )
+
+        # Parolni hash qilish
+        user.password = make_password(plain_password)
+        user.save()
+
+        # Natija
+        return {
+            'success': True,
+            'user_data': {
+                'id': str(user.id),
+                'username': username,
+                'password': plain_password,
+                'full_name': user.full_name,
+                'first_name': first_name,
+                'last_name': last_name,
+                'middle_name': middle_name,
+                'phone': phone or '-',
+                'email': email or '-',
+                'region': region.name if region else '-',
+                'district': district.name if district else '-',
+                'mahalla': mahalla.name if mahalla else '-',
+            }
+        }
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # EXPORT CREDENTIALS VIEW
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def export_credentials_view(self, request):
+        """Import qilingan userlarning login/parollarini ko'rsatish va yuklab olish"""
+
+        imported_users = request.session.get('imported_users', [])
+
+        # CSV yuklab olish
+        if request.GET.get('format') == 'csv':
+            return self._export_csv(imported_users)
+
+        # Excel yuklab olish
+        if request.GET.get('format') == 'excel':
+            return self._export_excel(imported_users)
+
+        context = {
+            'title': 'Import qilingan yetakchilar',
+            'users': imported_users,
+            'total': len(imported_users),
+            'opts': self.model._meta,
+            'has_change_permission': True,
+        }
+
+        return render(request, 'admin/user_export_credentials.html', context)
+
+    def _export_csv(self, users):
+        """CSV formatda eksport"""
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response[
+            'Content-Disposition'] = f'attachment; filename="yetakchilar_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        # UTF-8 BOM qo'shish (Excel uchun)
+        response.write('\ufeff')
+
+        writer = csv.writer(response)
+        writer.writerow(['#', 'F.I.O', 'Login', 'Parol', 'Telefon', 'Viloyat', 'Tuman', 'Mahalla'])
+
+        for i, user in enumerate(users, start=1):
+            writer.writerow([
+                i,
+                user['full_name'],
+                user['username'],
+                user['password'],
+                user['phone'],
+                user['region'],
+                user['district'],
+                user['mahalla'],
+            ])
+
+        return response
+
+    def _export_excel(self, users):
+        """Excel formatda eksport (openpyxl kerak)"""
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        except ImportError:
+            # openpyxl yo'q bo'lsa CSV qaytarish
+            return self._export_csv(users)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Yetakchilar"
+
+        # Sarlavha stili
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        # Chegara
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        # Sarlavhalar
+        headers = ['#', 'F.I.O', 'Login', 'Parol', 'Telefon', 'Viloyat', 'Tuman', 'Mahalla']
+
+        for col, header in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = thin_border
+
+        # Ma'lumotlar
+        for row, user in enumerate(users, start=2):
+            data = [
+                row - 1,
+                user['full_name'],
+                user['username'],
+                user['password'],
+                user['phone'],
+                user['region'],
+                user['district'],
+                user['mahalla'],
+            ]
+
+            for col, value in enumerate(data, start=1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="center")
+
+        # Ustun kengliklari
+        column_widths = [5, 30, 20, 15, 18, 20, 20, 25]
+        for i, width in enumerate(column_widths, start=1):
+            ws.column_dimensions[chr(64 + i)].width = width
+
+        # Response
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response[
+            'Content-Disposition'] = f'attachment; filename="yetakchilar_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+
+        wb.save(response)
+        return response
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NAMUNA JSON YUKLAB OLISH
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def download_sample_json(self, request):
+        """Namuna JSON fayl yuklab olish"""
+
+        sample_data = [
+            {
+                "first_name": "Shermat",
+                "last_name": "Shermatov",
+                "middle_name": "Shermatovich",
+                "phone": "+998901234567",
+                "email": "shermat@example.com",
+                "region_name": "Toshkent shahri",
+                "district_name": "Chilonzor tumani",
+                "mahalla_name": "Tinchlik MFY"
+            },
+            {
+                "first_name": "Olim",
+                "last_name": "Olimov",
+                "middle_name": "Olimovich",
+                "phone": "+998901234568",
+                "region_name": "Toshkent shahri",
+                "district_name": "Yakkasaroy tumani",
+                "mahalla_name": "Bobur MFY"
+            },
+            {
+                "first_name": "Karim",
+                "last_name": "Karimov",
+                "middle_name": "Karimovich",
+                "phone": "+998901234569",
+                "region_name": "Samarqand viloyati",
+                "district_name": "Samarqand shahri",
+                "mahalla_name": "Registon MFY"
+            }
+        ]
+
+        response = HttpResponse(
+            json.dumps(sample_data, ensure_ascii=False, indent=2),
+            content_type='application/json; charset=utf-8'
+        )
+        response['Content-Disposition'] = 'attachment; filename="namuna_yetakchilar.json"'
+
+        return response
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BOSHQA MODELLAR ADMIN
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @admin.register(Region)
 class RegionAdmin(admin.ModelAdmin):
-    list_display = ['name', 'code', 'districts_count_display', 'leaders_count_display', 'is_active', 'order']
+    list_display = ['name', 'code', 'districts_count', 'leaders_count', 'is_active', 'order']
     list_filter = ['is_active']
     search_fields = ['name', 'code']
     ordering = ['order', 'name']
     list_editable = ['order', 'is_active']
 
-    def districts_count_display(self, obj):
-        count = obj.districts.filter(is_active=True).count()
-        return format_html('<span class="badge bg-info">{}</span>', count)
-
-    districts_count_display.short_description = _("Tumanlar")
-
-    def leaders_count_display(self, obj):
-        count = User.objects.filter(
-            district__region=obj,
-            role=User.Role.LEADER,
-            status=User.Status.ACTIVE
-        ).count()
-        return format_html('<span class="badge bg-success">{}</span>', count)
-
-    leaders_count_display.short_description = _("Yetakchilar")
-
 
 @admin.register(District)
 class DistrictAdmin(admin.ModelAdmin):
-    list_display = ['name', 'region', 'code', 'mahallas_count_display', 'leaders_count_display', 'is_active', 'order']
+    list_display = ['name', 'region', 'code', 'mahallas_count', 'leaders_count', 'is_active', 'order']
     list_filter = ['region', 'is_active']
     search_fields = ['name', 'code', 'region__name']
     ordering = ['region', 'order', 'name']
     list_editable = ['order', 'is_active']
     autocomplete_fields = ['region']
 
-    def mahallas_count_display(self, obj):
-        count = obj.mahallas.filter(is_active=True).count()
-        return format_html('<span class="badge bg-info">{}</span>', count)
-
-    mahallas_count_display.short_description = _("Mahallalar")
-
-    def leaders_count_display(self, obj):
-        count = User.objects.filter(
-            mahalla__district=obj,
-            role=User.Role.LEADER,
-            status=User.Status.ACTIVE
-        ).count()
-        return format_html('<span class="badge bg-success">{}</span>', count)
-
-    leaders_count_display.short_description = _("Yetakchilar")
-
 
 @admin.register(Mahalla)
 class MahallaAdmin(admin.ModelAdmin):
-    list_display = ['name', 'district', 'region_display', 'code', 'population', 'households', 'leader_display',
-                    'is_active']
+    list_display = ['name', 'district', 'region_display', 'population', 'has_leader_display', 'is_active']
     list_filter = ['district__region', 'district', 'is_active']
-    search_fields = ['name', 'code', 'district__name', 'district__region__name']
-    ordering = ['district__region', 'district', 'name']
-    list_editable = ['is_active']
+    search_fields = ['name', 'district__name', 'district__region__name']
+    ordering = ['district', 'name']
     autocomplete_fields = ['district']
 
-    fieldsets = (
-        (None, {
-            'fields': ('district', 'name', 'code')
-        }),
-        (_('Statistika'), {
-            'fields': ('population', 'households')
-        }),
-        (_('Qo\'shimcha'), {
-            'fields': ('address', 'is_active')
-        }),
-    )
-
+    @admin.display(description='Viloyat')
     def region_display(self, obj):
         return obj.district.region.name
 
-    region_display.short_description = _("Viloyat")
+    @admin.display(description='Yetakchi', boolean=True)
+    def has_leader_display(self, obj):
+        return obj.has_leader
 
-    def leader_display(self, obj):
-        leader = obj.users.filter(role=User.Role.LEADER, status=User.Status.ACTIVE).first()
-        if leader:
-            return format_html(
-                '<span style="color: green;">✓ {}</span>',
-                leader.get_full_name() or leader.username
-            )
-        return format_html('<span style="color: red;">✗ Yo\'q</span>')
-
-    leader_display.short_description = _("Yetakchi")
-
-
-# ============================================================
-# USER ADMIN
-# ============================================================
-
-@admin.register(User)
-class UserAdmin(BaseUserAdmin):
-    list_display = [
-        'username',
-        'full_name_display',
-        'role_badge',
-        'status_badge',
-        'phone',
-        'location_display',
-        'last_activity_display',
-        'login_count',
-        'created_at'
-    ]
-    list_filter = ['role', 'status', 'region', 'district', 'created_at', 'last_login']
-    search_fields = ['username', 'first_name', 'last_name', 'middle_name', 'phone', 'email']
-    ordering = ['-created_at']
-    date_hierarchy = 'created_at'
-
-    readonly_fields = [
-        'created_at', 'updated_at', 'last_login', 'last_activity',
-        'last_login_ip', 'login_count', 'plain_password'
-    ]
-
-    fieldsets = (
-        (None, {
-            'fields': ('username', 'password')
-        }),
-        (_('Shaxsiy ma\'lumotlar'), {
-            'fields': ('last_name', 'first_name', 'middle_name', 'birth_date', 'avatar')
-        }),
-        (_('Kontakt'), {
-            'fields': ('phone', 'email')
-        }),
-        (_('Manzil'), {
-            'fields': ('region', 'district', 'mahalla')
-        }),
-        (_('Lavozim'), {
-            'fields': ('position', 'bio')
-        }),
-        (_('Rol va holat'), {
-            'fields': ('role', 'status')
-        }),
-        (_('Bildirishnomalar'), {
-            'fields': ('notify_email', 'notify_sms', 'notify_web'),
-            'classes': ('collapse',)
-        }),
-        (_('Parol'), {
-            'fields': ('plain_password', 'must_change_password'),
-            'classes': ('collapse',)
-        }),
-        (_('Ruxsatlar'), {
-            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
-            'classes': ('collapse',)
-        }),
-        (_('Tizim ma\'lumotlari'), {
-            'fields': ('last_login', 'last_activity', 'last_login_ip', 'login_count', 'created_at', 'updated_at',
-                       'created_by'),
-            'classes': ('collapse',)
-        }),
-    )
-
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('username', 'password1', 'password2'),
-        }),
-        (_('Shaxsiy ma\'lumotlar'), {
-            'classes': ('wide',),
-            'fields': ('last_name', 'first_name', 'middle_name', 'phone'),
-        }),
-        (_('Manzil'), {
-            'classes': ('wide',),
-            'fields': ('region', 'district', 'mahalla'),
-        }),
-        (_('Rol'), {
-            'classes': ('wide',),
-            'fields': ('role', 'status'),
-        }),
-    )
-
-    autocomplete_fields = ['region', 'district', 'mahalla', 'created_by']
-    filter_horizontal = ['groups', 'user_permissions']
-
-    actions = [
-        'activate_users',
-        'deactivate_users',
-        'block_users',
-        'reset_passwords',
-        'export_users_excel',
-        'export_users_json'
-    ]
-
-    def full_name_display(self, obj):
-        full_name = obj.get_full_name()
-        if full_name:
-            return full_name
-        return format_html('<span style="color: gray;">{}</span>', obj.username)
-
-    full_name_display.short_description = _("F.I.Sh")
-
-    def role_badge(self, obj):
-        colors = {
-            'super_admin': '#dc3545',
-            'region_admin': '#6f42c1',
-            'district_admin': '#0d6efd',
-            'leader': '#198754'
-        }
-        color = colors.get(obj.role, '#6c757d')
-        return format_html(
-            '<span style="background:{}; color:white; padding:3px 10px; '
-            'border-radius:12px; font-size:11px; font-weight:500;">{}</span>',
-            color, obj.get_role_display()
-        )
-
-    role_badge.short_description = _("Rol")
-
-    def status_badge(self, obj):
-        colors = {
-            'active': '#198754',
-            'inactive': '#ffc107',
-            'blocked': '#dc3545',
-            'pending': '#6c757d'
-        }
-        color = colors.get(obj.status, '#6c757d')
-        return format_html(
-            '<span style="background:{}; color:white; padding:3px 10px; '
-            'border-radius:12px; font-size:11px; font-weight:500;">{}</span>',
-            color, obj.get_status_display()
-        )
-
-    status_badge.short_description = _("Holat")
-
-    def location_display(self, obj):
-        parts = []
-        if obj.region:
-            parts.append(obj.region.name)
-        if obj.district:
-            parts.append(obj.district.name)
-        if obj.mahalla:
-            parts.append(obj.mahalla.name)
-
-        if parts:
-            return format_html(
-                '<small>{}</small>',
-                ' → '.join(parts)
-            )
-        return format_html('<span style="color: gray;">—</span>')
-
-    location_display.short_description = _("Manzil")
-
-    def last_activity_display(self, obj):
-        if obj.last_activity:
-            delta = timezone.now() - obj.last_activity
-            if delta.days == 0:
-                if delta.seconds < 3600:
-                    minutes = delta.seconds // 60
-                    return format_html(
-                        '<span style="color: green;">{} daqiqa oldin</span>',
-                        minutes
-                    )
-                else:
-                    hours = delta.seconds // 3600
-                    return format_html(
-                        '<span style="color: green;">{} soat oldin</span>',
-                        hours
-                    )
-            elif delta.days < 7:
-                return format_html(
-                    '<span style="color: orange;">{} kun oldin</span>',
-                    delta.days
-                )
-            else:
-                return format_html(
-                    '<span style="color: gray;">{}</span>',
-                    obj.last_activity.strftime('%d.%m.%Y')
-                )
-        return format_html('<span style="color: gray;">—</span>')
-
-    last_activity_display.short_description = _("Faollik")
-
-    def save_model(self, request, obj, form, change):
-        if not change:
-            obj.created_by = request.user
-
-            # Yangi user uchun parol generatsiya
-            if not obj.password or obj.password == '':
-                password = User.generate_password()
-                obj.set_password(password)
-                obj.plain_password = password
-
-        super().save_model(request, obj, form, change)
-
-    @admin.action(description=_("Tanlangan foydalanuvchilarni faollashtirish"))
-    def activate_users(self, request, queryset):
-        count = queryset.update(status=User.Status.ACTIVE)
-        self.message_user(request, f"{count} ta foydalanuvchi faollashtirildi.")
-
-    @admin.action(description=_("Tanlangan foydalanuvchilarni nofaollashtirish"))
-    def deactivate_users(self, request, queryset):
-        count = queryset.update(status=User.Status.INACTIVE)
-        self.message_user(request, f"{count} ta foydalanuvchi nofaollashtirildi.")
-
-    @admin.action(description=_("Tanlangan foydalanuvchilarni bloklash"))
-    def block_users(self, request, queryset):
-        count = queryset.exclude(role=User.Role.SUPER_ADMIN).update(status=User.Status.BLOCKED)
-        self.message_user(request, f"{count} ta foydalanuvchi bloklandi.")
-
-    @admin.action(description=_("Parolni qayta tiklash"))
-    def reset_passwords(self, request, queryset):
-        count = 0
-        for user in queryset:
-            password = User.generate_password()
-            user.set_password(password)
-            user.plain_password = password
-            user.must_change_password = True
-            user.save()
-            count += 1
-        self.message_user(request, f"{count} ta foydalanuvchi paroli yangilandi.")
-
-    @admin.action(description=_("Excel ga eksport"))
-    def export_users_excel(self, request, queryset):
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Foydalanuvchilar"
-
-        headers = [
-            '№', 'Username', 'Familiya', 'Ism', 'Otasining ismi',
-            'Telefon', 'Email', 'Rol', 'Holat',
-            'Viloyat', 'Tuman', 'Mahalla', 'Parol', 'Yaratilgan'
-        ]
-
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=header)
-            cell.font = openpyxl.styles.Font(bold=True)
-
-        for row, user in enumerate(queryset, 2):
-            ws.cell(row=row, column=1, value=row - 1)
-            ws.cell(row=row, column=2, value=user.username)
-            ws.cell(row=row, column=3, value=user.last_name)
-            ws.cell(row=row, column=4, value=user.first_name)
-            ws.cell(row=row, column=5, value=user.middle_name)
-            ws.cell(row=row, column=6, value=user.phone)
-            ws.cell(row=row, column=7, value=user.email)
-            ws.cell(row=row, column=8, value=user.get_role_display())
-            ws.cell(row=row, column=9, value=user.get_status_display())
-            ws.cell(row=row, column=10, value=str(user.region) if user.region else '')
-            ws.cell(row=row, column=11, value=str(user.district) if user.district else '')
-            ws.cell(row=row, column=12, value=str(user.mahalla) if user.mahalla else '')
-            ws.cell(row=row, column=13, value=user.plain_password)
-            ws.cell(row=row, column=14, value=user.created_at.strftime('%d.%m.%Y %H:%M'))
-
-        for col in ws.columns:
-            max_length = max(len(str(cell.value or '')) for cell in col)
-            ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
-
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = 'attachment; filename="foydalanuvchilar.xlsx"'
-        wb.save(response)
-        return response
-
-    @admin.action(description=_("JSON ga eksport"))
-    def export_users_json(self, request, queryset):
-        data = []
-        for user in queryset:
-            data.append({
-                'id': str(user.pk),
-                'username': user.username,
-                'full_name': user.get_full_name(),
-                'phone': user.phone,
-                'email': user.email,
-                'role': user.role,
-                'status': user.status,
-                'region': str(user.region) if user.region else None,
-                'district': str(user.district) if user.district else None,
-                'mahalla': str(user.mahalla) if user.mahalla else None,
-                'password': user.plain_password,
-                'created_at': user.created_at.isoformat()
-            })
-
-        response = HttpResponse(
-            json.dumps(data, ensure_ascii=False, indent=2),
-            content_type='application/json'
-        )
-        response['Content-Disposition'] = 'attachment; filename="foydalanuvchilar.json"'
-        return response
-
-
-# ============================================================
-# NOTIFICATION ADMIN
-# ============================================================
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ['user', 'type_badge', 'priority_badge', 'title', 'is_read_badge', 'created_at']
-    list_filter = ['type', 'priority', 'is_read', 'created_at']
-    search_fields = ['user__username', 'user__first_name', 'title', 'message']
+    list_display = ['user', 'type', 'title', 'is_read', 'created_at']
+    list_filter = ['type', 'is_read', 'priority', 'created_at']
+    search_fields = ['title', 'message', 'user__username']
     ordering = ['-created_at']
-    date_hierarchy = 'created_at'
-
     readonly_fields = ['created_at', 'read_at']
 
-    fieldsets = (
-        (None, {
-            'fields': ('user', 'type', 'priority')
-        }),
-        (_('Xabar'), {
-            'fields': ('title', 'message', 'link')
-        }),
-        (_('Holat'), {
-            'fields': ('is_read', 'read_at')
-        }),
-        (_('Qo\'shimcha'), {
-            'fields': ('metadata', 'created_at'),
-            'classes': ('collapse',)
-        }),
-    )
-
-    autocomplete_fields = ['user']
-
-    actions = ['mark_as_read', 'mark_as_unread', 'delete_old_notifications']
-
-    def type_badge(self, obj):
-        colors = {
-            'task_new': '#0d6efd',
-            'task_deadline': '#ffc107',
-            'task_overdue': '#dc3545',
-            'task_approved': '#198754',
-            'task_rejected': '#dc3545',
-            'announcement': '#6f42c1',
-            'system': '#6c757d',
-            'warning': '#fd7e14'
-        }
-        color = colors.get(obj.type, '#6c757d')
-        return format_html(
-            '<span style="background:{}; color:white; padding:2px 8px; '
-            'border-radius:10px; font-size:10px;">{}</span>',
-            color, obj.get_type_display()
-        )
-
-    type_badge.short_description = _("Turi")
-
-    def priority_badge(self, obj):
-        colors = {
-            'low': '#198754',
-            'normal': '#0d6efd',
-            'high': '#ffc107',
-            'urgent': '#dc3545'
-        }
-        color = colors.get(obj.priority, '#6c757d')
-        return format_html(
-            '<span style="color:{}; font-weight:bold;">●</span>',
-            color
-        )
-
-    priority_badge.short_description = _("!")
-
-    def is_read_badge(self, obj):
-        if obj.is_read:
-            return format_html('<span style="color: green;">✓ O\'qilgan</span>')
-        return format_html('<span style="color: orange;">○ Yangi</span>')
-
-    is_read_badge.short_description = _("Holat")
-
-    @admin.action(description=_("O'qilgan deb belgilash"))
-    def mark_as_read(self, request, queryset):
-        count = queryset.filter(is_read=False).update(is_read=True, read_at=timezone.now())
-        self.message_user(request, f"{count} ta bildirishnoma o'qilgan deb belgilandi.")
-
-    @admin.action(description=_("O'qilmagan deb belgilash"))
-    def mark_as_unread(self, request, queryset):
-        count = queryset.update(is_read=False, read_at=None)
-        self.message_user(request, f"{count} ta bildirishnoma o'qilmagan deb belgilandi.")
-
-    @admin.action(description=_("30 kundan eski bildirishnomalarni o'chirish"))
-    def delete_old_notifications(self, request, queryset):
-        from datetime import timedelta
-        old_date = timezone.now() - timedelta(days=30)
-        count = Notification.objects.filter(created_at__lt=old_date, is_read=True).delete()[0]
-        self.message_user(request, f"{count} ta eski bildirishnoma o'chirildi.")
-
-
-# ============================================================
-# ANNOUNCEMENT ADMIN
-# ============================================================
 
 @admin.register(Announcement)
 class AnnouncementAdmin(admin.ModelAdmin):
-    list_display = ['title', 'priority_badge', 'status_badge', 'target_display', 'views_count', 'is_active_display',
-                    'created_by', 'created_at']
-    list_filter = ['priority', 'status', 'target_all', 'target_region', 'created_at']
+    list_display = ['title', 'priority', 'status', 'target_display', 'views_count', 'created_at']
+    list_filter = ['status', 'priority', 'target_all', 'target_region']
     search_fields = ['title', 'content']
     ordering = ['-created_at']
-    date_hierarchy = 'created_at'
 
-    readonly_fields = ['views_count', 'created_at', 'updated_at']
-
-    fieldsets = (
-        (None, {
-            'fields': ('title', 'content', 'priority', 'status')
-        }),
-        (_('Kimga'), {
-            'fields': ('target_all', 'target_region', 'target_district', 'target_roles')
-        }),
-        (_('Vaqt'), {
-            'fields': ('publish_at', 'expires_at')
-        }),
-        (_('Fayl'), {
-            'fields': ('attachment',),
-            'classes': ('collapse',)
-        }),
-        (_('Statistika'), {
-            'fields': ('views_count', 'created_by', 'created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
-
-    autocomplete_fields = ['target_region', 'target_district', 'created_by']
-
-    actions = ['publish_announcements', 'archive_announcements']
-
-    def priority_badge(self, obj):
-        colors = {
-            'low': '#198754',
-            'normal': '#0d6efd',
-            'high': '#ffc107',
-            'urgent': '#dc3545'
-        }
-        icons = {
-            'low': '○',
-            'normal': '●',
-            'high': '◉',
-            'urgent': '⚠'
-        }
-        color = colors.get(obj.priority, '#6c757d')
-        icon = icons.get(obj.priority, '●')
-        return format_html(
-            '<span style="color:{}; font-size:16px;">{}</span>',
-            color, icon
-        )
-
-    priority_badge.short_description = _("!")
-
-    def status_badge(self, obj):
-        colors = {
-            'draft': '#6c757d',
-            'active': '#198754',
-            'archived': '#495057'
-        }
-        color = colors.get(obj.status, '#6c757d')
-        return format_html(
-            '<span style="background:{}; color:white; padding:2px 8px; '
-            'border-radius:10px; font-size:10px;">{}</span>',
-            color, obj.get_status_display()
-        )
-
-    status_badge.short_description = _("Holat")
-
+    @admin.display(description='Maqsad')
     def target_display(self, obj):
         if obj.target_all:
-            return format_html('<span style="color: green;">🌍 Hammaga</span>')
-
+            return "Hammaga"
         parts = []
         if obj.target_region:
-            parts.append(f"📍 {obj.target_region.name}")
+            parts.append(obj.target_region.name)
         if obj.target_district:
-            parts.append(f"🏢 {obj.target_district.name}")
-        if obj.target_roles:
-            roles = ', '.join(obj.target_roles)
-            parts.append(f"👥 {roles}")
-
-        return format_html('<small>{}</small>', ' | '.join(parts) if parts else '—')
-
-    target_display.short_description = _("Kimga")
-
-    def is_active_display(self, obj):
-        if obj.is_active:
-            return format_html('<span style="color: green;">✓ Faol</span>')
-        if obj.status == Announcement.Status.DRAFT:
-            return format_html('<span style="color: gray;">○ Qoralama</span>')
-        if obj.is_expired:
-            return format_html('<span style="color: red;">✗ Muddati o\'tgan</span>')
-        return format_html('<span style="color: orange;">⏳ Kutilmoqda</span>')
-
-    is_active_display.short_description = _("Faol")
-
-    def save_model(self, request, obj, form, change):
-        if not change:
-            obj.created_by = request.user
-        super().save_model(request, obj, form, change)
-
-    @admin.action(description=_("E'lon qilish"))
-    def publish_announcements(self, request, queryset):
-        count = 0
-        for announcement in queryset.filter(status=Announcement.Status.DRAFT):
-            announcement.publish()
-            count += 1
-        self.message_user(request, f"{count} ta e'lon chop etildi.")
-
-    @admin.action(description=_("Arxivlash"))
-    def archive_announcements(self, request, queryset):
-        count = queryset.update(status=Announcement.Status.ARCHIVED)
-        self.message_user(request, f"{count} ta e'lon arxivlandi.")
+            parts.append(obj.target_district.name)
+        return ", ".join(parts) if parts else "-"
