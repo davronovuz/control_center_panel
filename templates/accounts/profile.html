@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Profil - {{ user.full_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Sarlavha -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">👤 Mening profilim</h4>
+                    <p class="text-muted mb-0">Shaxsiy ma'lumotlaringizni ko'rish va tahrirlash</p>
+                </div>
+                <a href="{% url 'accounts:change_password' %}" class="btn btn-outline-primary">
+                    🔐 Parolni o'zgartirish
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Chap: Profil kartasi -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <!-- Avatar -->
+                    <div class="mb-4">
+                        {% if user.avatar %}
+                            <img src="{{ user.avatar.url }}"
+                                 alt="{{ user.full_name }}"
+                                 class="rounded-circle"
+                                 style="width: 120px; height: 120px; object-fit: cover; border: 4px solid #e9ecef;">
+                        {% else %}
+                            <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center"
+                                 style="width: 120px; height: 120px; font-size: 48px; color: white;">
+                                {{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Ism -->
+                    <h5 class="mb-1">{{ user.full_name|default:user.username }}</h5>
+
+                    <!-- Rol -->
+                    <span class="badge
+                        {% if user.role == 'super_admin' %}bg-danger
+                        {% elif user.role == 'region_admin' %}bg-warning
+                        {% elif user.role == 'district_admin' %}bg-info
+                        {% else %}bg-success{% endif %} mb-3">
+                        {{ user.get_role_display }}
+                    </span>
+
+                    <!-- Status -->
+                    <div class="mb-3">
+                        {% if user.status == 'active' %}
+                            <span class="badge bg-success-subtle text-success">● Faol</span>
+                        {% elif user.status == 'inactive' %}
+                            <span class="badge bg-secondary-subtle text-secondary">● Nofaol</span>
+                        {% elif user.status == 'blocked' %}
+                            <span class="badge bg-danger-subtle text-danger">● Bloklangan</span>
+                        {% else %}
+                            <span class="badge bg-warning-subtle text-warning">● Kutilmoqda</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Qisqa ma'lumot -->
+                    <div class="text-muted small">
+                        {% if user.mahalla %}
+                            <p class="mb-1">📍 {{ user.mahalla.name }}</p>
+                        {% endif %}
+                        {% if user.district %}
+                            <p class="mb-1">🏢 {{ user.district.name }}</p>
+                        {% endif %}
+                        {% if user.region %}
+                            <p class="mb-0">🌍 {{ user.region.name }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Statistika -->
+                <div class="card-footer bg-light">
+                    <div class="row text-center">
+                        <div class="col-6 border-end">
+                            <div class="py-2">
+                                <h5 class="mb-0 text-primary">{{ user.login_count }}</h5>
+                                <small class="text-muted">Kirish soni</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="py-2">
+                                <h5 class="mb-0 text-success">
+                                    {% if user.last_activity %}
+                                        {{ user.last_activity|timesince }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </h5>
+                                <small class="text-muted">Oxirgi faollik</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- O'ng: Tahrirlash formasi -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">✏️ Ma'lumotlarni tahrirlash</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="row">
+                            <!-- Familiya -->
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold">Familiya</label>
+                                <input type="text"
+                                       name="last_name"
+                                       class="form-control"
+                                       value="{{ user.last_name }}"
+                                       placeholder="Familiyangiz">
+                            </div>
+
+                            <!-- Ism -->
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold">Ism</label>
+                                <input type="text"
+                                       name="first_name"
+                                       class="form-control"
+                                       value="{{ user.first_name }}"
+                                       placeholder="Ismingiz">
+                            </div>
+
+                            <!-- Otasining ismi -->
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold">Otasining ismi</label>
+                                <input type="text"
+                                       name="middle_name"
+                                       class="form-control"
+                                       value="{{ user.middle_name }}"
+                                       placeholder="Otangizning ismi">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Telefon -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Telefon raqam</label>
+                                <input type="tel"
+                                       name="phone"
+                                       class="form-control"
+                                       value="{{ user.phone|default:'' }}"
+                                       placeholder="+998 90 123 45 67">
+                            </div>
+
+                            <!-- Email -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Email</label>
+                                <input type="email"
+                                       name="email"
+                                       class="form-control"
+                                       value="{{ user.email|default:'' }}"
+                                       placeholder="email@example.com">
+                            </div>
+                        </div>
+
+                        <!-- Avatar -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Profil rasmi</label>
+                            <input type="file"
+                                   name="avatar"
+                                   class="form-control"
+                                   accept="image/*">
+                            <div class="form-text">JPG, PNG formatda, 2MB gacha</div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Faqat o'qish uchun ma'lumotlar -->
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold text-muted">Username</label>
+                                <input type="text"
+                                       class="form-control bg-light"
+                                       value="{{ user.username }}"
+                                       disabled>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold text-muted">Rol</label>
+                                <input type="text"
+                                       class="form-control bg-light"
+                                       value="{{ user.get_role_display }}"
+                                       disabled>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold text-muted">A'zo bo'lgan</label>
+                                <input type="text"
+                                       class="form-control bg-light"
+                                       value="{{ user.created_at|date:'d.m.Y' }}"
+                                       disabled>
+                            </div>
+                        </div>
+
+                        <!-- Joylashuv (faqat o'qish) -->
+                        {% if user.region or user.district or user.mahalla %}
+                        <div class="row">
+                            {% if user.region %}
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold text-muted">Viloyat</label>
+                                <input type="text"
+                                       class="form-control bg-light"
+                                       value="{{ user.region.name }}"
+                                       disabled>
+                            </div>
+                            {% endif %}
+                            {% if user.district %}
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold text-muted">Tuman</label>
+                                <input type="text"
+                                       class="form-control bg-light"
+                                       value="{{ user.district.name }}"
+                                       disabled>
+                            </div>
+                            {% endif %}
+                            {% if user.mahalla %}
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-semibold text-muted">Mahalla</label>
+                                <input type="text"
+                                       class="form-control bg-light"
+                                       value="{{ user.mahalla.name }}"
+                                       disabled>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Tugmalar -->
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="{% url 'dashboard:home' %}" class="btn btn-light">
+                                Bekor qilish
+                            </a>
+                            <button type="submit" class="btn btn-primary px-4">
+                                💾 Saqlash
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
