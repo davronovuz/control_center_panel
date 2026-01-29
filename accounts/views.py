@@ -80,7 +80,7 @@ def profile(request):
         messages.success(request, "Profil yangilandi!")
         return redirect('accounts:profile')
 
-    return render(request, 'accounts/profile.html', {'user': user})
+    return render(request, 'profile.html', {'user': user})
 
 
 @login_required
