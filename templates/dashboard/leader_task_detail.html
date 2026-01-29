@@ -34,6 +34,8 @@
                         <span class="badge bg-primary">Yuborilgan</span>
                         {% elif assignment.status == 'approved' %}
                         <span class="badge bg-success">Tasdiqlandi</span>
+                        {% elif assignment.status == 'rejected' %}
+                        <span class="badge bg-danger">Rad etildi</span>
                         {% endif %}
                     </div>
 
@@ -115,30 +117,31 @@
                                         {% for col in columns %}
                                         <td>
                                             {% with response_key="col_"|add:col.pk|stringformat:"s"|add:"_"|add:forloop.parentloop.counter0|stringformat:"s" %}
+                                            {% with resp=responses|get_item:response_key %}
                                             {% if col.data_type == 'text' %}
                                             <input type="text"
                                                    name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
                                                    class="form-control form-control-sm auto-save"
-                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
                                                    placeholder="{{ col.placeholder }}"
                                                    {% if col.required %}required{% endif %}>
                                             {% elif col.data_type == 'textarea' %}
                                             <textarea name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
                                                       class="form-control form-control-sm auto-save"
                                                       rows="2"
-                                                      {% if col.required %}required{% endif %}>{{ responses|get_item:response_key|default:'' }}</textarea>
+                                                      {% if col.required %}required{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
                                             {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
                                             <input type="number"
                                                    name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
                                                    class="form-control form-control-sm auto-save"
-                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}"
                                                    step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
                                                    {% if col.required %}required{% endif %}>
                                             {% elif col.data_type == 'date' %}
                                             <input type="date"
                                                    name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
                                                    class="form-control form-control-sm auto-save"
-                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   value="{% if resp %}{{ resp.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
                                                    {% if col.required %}required{% endif %}>
                                             {% elif col.data_type == 'choice' %}
                                             <select name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
@@ -146,7 +149,7 @@
                                                     {% if col.required %}required{% endif %}>
                                                 <option value="">Tanlang...</option>
                                                 {% for choice in col.choices %}
-                                                <option value="{{ choice.value }}" {% if responses|get_item:response_key == choice.value %}selected{% endif %}>{{ choice.label }}</option>
+                                                <option value="{{ choice.value }}" {% if resp and resp.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>
                                                 {% endfor %}
                                             </select>
                                             {% elif col.data_type == 'boolean' %}
@@ -154,23 +157,24 @@
                                                     class="form-select form-select-sm auto-save"
                                                     {% if col.required %}required{% endif %}>
                                                 <option value="">Tanlang...</option>
-                                                <option value="true" {% if responses|get_item:response_key == 'true' %}selected{% endif %}>Ha</option>
-                                                <option value="false" {% if responses|get_item:response_key == 'false' %}selected{% endif %}>Yo'q</option>
+                                                <option value="true" {% if resp and resp.value_boolean == True %}selected{% endif %}>Ha</option>
+                                                <option value="false" {% if resp and resp.value_boolean == False %}selected{% endif %}>Yo'q</option>
                                             </select>
                                             {% elif col.data_type == 'phone' %}
                                             <input type="tel"
                                                    name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
                                                    class="form-control form-control-sm auto-save"
-                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
                                                    placeholder="+998901234567"
                                                    {% if col.required %}required{% endif %}>
                                             {% else %}
                                             <input type="text"
                                                    name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
                                                    class="form-control form-control-sm auto-save"
-                                                   value="{{ responses|get_item:response_key|default:'' }}"
+                                                   value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
                                                    {% if col.required %}required{% endif %}>
                                             {% endif %}
+                                            {% endwith %}
                                             {% endwith %}
                                         </td>
                                         {% endfor %}
@@ -188,30 +192,31 @@
                                 {% for col in columns %}
                                 <td>
                                     {% with response_key="col_"|add:col.pk|stringformat:"s"|add:"_0" %}
+                                    {% with resp=responses|get_item:response_key %}
                                     {% if col.data_type == 'text' %}
                                     <input type="text"
                                            name="col_{{ col.pk }}_0"
                                            class="form-control form-control-sm auto-save"
-                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}"
+                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
                                            placeholder="{{ col.placeholder }}"
                                            {% if col.required %}required{% endif %}>
                                     {% elif col.data_type == 'textarea' %}
                                     <textarea name="col_{{ col.pk }}_0"
                                               class="form-control form-control-sm auto-save"
                                               rows="2"
-                                              {% if col.required %}required{% endif %}>{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}</textarea>
+                                              {% if col.required %}required{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
                                     {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
                                     <input type="number"
                                            name="col_{{ col.pk }}_0"
                                            class="form-control form-control-sm auto-save"
-                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_number|default:'' }}{% endif %}"
+                                           value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}"
                                            step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
                                            {% if col.required %}required{% endif %}>
                                     {% elif col.data_type == 'date' %}
                                     <input type="date"
                                            name="col_{{ col.pk }}_0"
                                            class="form-control form-control-sm auto-save"
-                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
+                                           value="{% if resp %}{{ resp.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
                                            {% if col.required %}required{% endif %}>
                                     {% elif col.data_type == 'choice' %}
                                     <select name="col_{{ col.pk }}_0"
@@ -219,7 +224,7 @@
                                             {% if col.required %}required{% endif %}>
                                         <option value="">Tanlang...</option>
                                         {% for choice in col.choices %}
-                                        <option value="{{ choice.value }}" {% if responses|get_item:response_key and responses|get_item:response_key.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>
+                                        <option value="{{ choice.value }}" {% if resp and resp.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>
                                         {% endfor %}
                                     </select>
                                     {% elif col.data_type == 'boolean' %}
@@ -227,23 +232,24 @@
                                             class="form-select form-select-sm auto-save"
                                             {% if col.required %}required{% endif %}>
                                         <option value="">Tanlang...</option>
-                                        <option value="true" {% if responses|get_item:response_key and responses|get_item:response_key.value_boolean %}selected{% endif %}>Ha</option>
-                                        <option value="false" {% if responses|get_item:response_key and responses|get_item:response_key.value_boolean == False %}selected{% endif %}>Yo'q</option>
+                                        <option value="true" {% if resp and resp.value_boolean == True %}selected{% endif %}>Ha</option>
+                                        <option value="false" {% if resp and resp.value_boolean == False %}selected{% endif %}>Yo'q</option>
                                     </select>
                                     {% elif col.data_type == 'phone' %}
                                     <input type="tel"
                                            name="col_{{ col.pk }}_0"
                                            class="form-control form-control-sm auto-save"
-                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}"
+                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
                                            placeholder="+998901234567"
                                            {% if col.required %}required{% endif %}>
                                     {% else %}
                                     <input type="text"
                                            name="col_{{ col.pk }}_0"
                                            class="form-control form-control-sm auto-save"
-                                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}"
+                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
                                            {% if col.required %}required{% endif %}>
                                     {% endif %}
+                                    {% endwith %}
                                     {% endwith %}
                                 </td>
                                 {% endfor %}
@@ -280,31 +286,32 @@
                     {% endif %}
 
                     {% with response_key="q_"|add:question.pk|stringformat:"s" %}
+                    {% with resp=responses|get_item:response_key %}
                     {% if question.answer_type == 'text' %}
                     <input type="text"
                            name="q_{{ question.pk }}"
                            class="form-control auto-save"
-                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}"
+                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
                            {% if question.required %}required{% endif %}>
 
                     {% elif question.answer_type == 'textarea' %}
                     <textarea name="q_{{ question.pk }}"
                               class="form-control auto-save"
                               rows="4"
-                              {% if question.required %}required{% endif %}>{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_text|default:'' }}{% endif %}</textarea>
+                              {% if question.required %}required{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
 
                     {% elif question.answer_type == 'number' %}
                     <input type="number"
                            name="q_{{ question.pk }}"
                            class="form-control auto-save"
-                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_number|default:'' }}{% endif %}"
+                           value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}"
                            {% if question.required %}required{% endif %}>
 
                     {% elif question.answer_type == 'date' %}
                     <input type="date"
                            name="q_{{ question.pk }}"
                            class="form-control auto-save"
-                           value="{% if responses|get_item:response_key %}{{ responses|get_item:response_key.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
+                           value="{% if resp %}{{ resp.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
                            {% if question.required %}required{% endif %}>
 
                     {% elif question.answer_type == 'choice' %}
@@ -316,7 +323,7 @@
                                    name="q_{{ question.pk }}"
                                    value="{{ choice.value }}"
                                    id="q_{{ question.pk }}_{{ forloop.counter }}"
-                                   {% if responses|get_item:response_key and responses|get_item:response_key.value_choice == choice.value %}checked{% endif %}
+                                   {% if resp and resp.value_choice == choice.value %}checked{% endif %}
                                    {% if question.required %}required{% endif %}>
                             <label class="form-check-label" for="q_{{ question.pk }}_{{ forloop.counter }}">
                                 {{ choice.label }}
@@ -334,7 +341,7 @@
                                    name="q_{{ question.pk }}"
                                    value="{{ choice.value }}"
                                    id="q_{{ question.pk }}_{{ forloop.counter }}"
-                                   {% if responses|get_item:response_key and choice.value in responses|get_item:response_key.value_json %}checked{% endif %}>
+                                   {% if resp and resp.value_json and choice.value in resp.value_json %}checked{% endif %}>
                             <label class="form-check-label" for="q_{{ question.pk }}_{{ forloop.counter }}">
                                 {{ choice.label }}
                             </label>
@@ -350,7 +357,7 @@
                                    name="q_{{ question.pk }}"
                                    value="true"
                                    id="q_{{ question.pk }}_yes"
-                                   {% if responses|get_item:response_key and responses|get_item:response_key.value_boolean %}checked{% endif %}
+                                   {% if resp and resp.value_boolean == True %}checked{% endif %}
                                    {% if question.required %}required{% endif %}>
                             <label class="form-check-label" for="q_{{ question.pk }}_yes">Ha</label>
                         </div>
@@ -360,7 +367,7 @@
                                    name="q_{{ question.pk }}"
                                    value="false"
                                    id="q_{{ question.pk }}_no"
-                                   {% if responses|get_item:response_key and responses|get_item:response_key.value_boolean == False %}checked{% endif %}>
+                                   {% if resp and resp.value_boolean == False %}checked{% endif %}>
                             <label class="form-check-label" for="q_{{ question.pk }}_no">Yo'q</label>
                         </div>
                     </div>
@@ -374,7 +381,7 @@
                                    name="q_{{ question.pk }}"
                                    value="{{ i }}"
                                    id="q_{{ question.pk }}_{{ i }}"
-                                   {% if responses|get_item:response_key and responses|get_item:response_key.value_number|stringformat:"d" == i %}checked{% endif %}
+                                   {% if resp and resp.value_number|stringformat:"d" == i %}checked{% endif %}
                                    {% if question.required %}required{% endif %}>
                             <label class="form-check-label" for="q_{{ question.pk }}_{{ i }}">{{ i }} ⭐</label>
                         </div>
@@ -386,10 +393,11 @@
                            name="q_{{ question.pk }}"
                            class="form-control"
                            {% if question.required %}required{% endif %}>
-                    {% if responses|get_item:response_key and responses|get_item:response_key.value_file %}
-                    <small class="text-muted">Mavjud fayl: {{ responses|get_item:response_key.value_file.name }}</small>
+                    {% if resp and resp.value_file %}
+                    <small class="text-muted">Mavjud fayl: {{ resp.value_file.name }}</small>
                     {% endif %}
                     {% endif %}
+                    {% endwith %}
                     {% endwith %}
                 </div>
                 {% endfor %}
@@ -403,11 +411,13 @@
                 <h5 class="card-title mb-0"><i class="bi bi-file-text me-2"></i>Hisobotni yozing</h5>
             </div>
             <div class="card-body">
+                {% with resp=responses|get_item:"report" %}
                 <textarea name="report_text"
                           class="form-control auto-save"
                           rows="15"
                           placeholder="Hisobotingizni shu yerga yozing..."
-                          required>{% if responses.report %}{{ responses.report.value_text|default:'' }}{% endif %}</textarea>
+                          required>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
+                {% endwith %}
                 <small class="text-muted mt-2 d-block">
                     <i class="bi bi-info-circle"></i> Minimum 100 ta belgi yozishingiz kerak
                 </small>
@@ -438,12 +448,12 @@
 
                 <!-- Uploaded Files List -->
                 <div id="filesList" class="mt-3">
-                    {% for response in responses.values %}
-                    {% if response.value_file %}
+                    {% for key, resp in responses.items %}
+                    {% if resp.value_file %}
                     <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded mb-2">
                         <div class="d-flex align-items-center gap-2">
                             <i class="bi bi-file-earmark text-primary"></i>
-                            <span>{{ response.value_file.name|slice:"-30" }}</span>
+                            <span>{{ resp.value_file.name|slice:"-30" }}</span>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-danger">
                             <i class="bi bi-trash"></i>

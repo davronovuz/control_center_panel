@@ -192,7 +192,6 @@ def leader_tasks(request):
     }
     return render(request, 'dashboard/leader_tasks.html', context)
 
-
 @login_required
 def leader_task_detail(request, pk):
     """Yetakchi - vazifa tafsilotlari va to'ldirish"""
@@ -216,16 +215,22 @@ def leader_task_detail(request, pk):
     columns = task.columns.order_by('order')
     questions = task.questions.order_by('order')
 
-    # Mavjud javoblar
+    # ═══════════════════════════════════════════════════════════════
+    # MAVJUD JAVOBLARNI OLISH - TUZATILGAN
+    # ═══════════════════════════════════════════════════════════════
     responses = {}
-    for response in assignment.responses.all():
+    for response in assignment.responses.select_related('column', 'question').all():
         if response.column:
-            key = f"col_{response.column.pk}_{response.row_index}"
+            # Jadval uchun - OBJECT emas, qiymatni saqlaymiz
+            key = f"col_{response.column.pk}_{response.row_index or 0}"
+            responses[key] = response  # Response object (template da ishlatiladi)
         elif response.question:
+            # Savol uchun
             key = f"q_{response.question.pk}"
+            responses[key] = response
         else:
-            continue
-        responses[key] = response
+            # Hisobot
+            responses['report'] = response
 
     context = {
         'assignment': assignment,
