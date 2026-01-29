@@ -496,6 +496,8 @@ class UserAdmin(BaseUserAdmin):
         )
         response['Content-Disposition'] = 'attachment; filename="namuna_yetakchilar.json"'
 
+        change_list_template = 'admin/user_change_list.html'  # ← Qo'shin
+
         return response
 
 
