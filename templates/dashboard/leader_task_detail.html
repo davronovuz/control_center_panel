@@ -110,83 +110,81 @@
                         </thead>
                         <tbody id="tableBody">
                             {% if task.allow_multiple_rows %}
-                                {% for row_num in "0123456789"|make_list %}
-                                    {% if forloop.first or responses %}
-                                    <tr class="data-row" data-row="{{ forloop.counter0 }}">
-                                        <td class="text-center text-muted">{{ forloop.counter }}</td>
-                                        {% for col in columns %}
-                                        <td>
-                                            {% with response_key="col_"|add:col.pk|stringformat:"s"|add:"_"|add:forloop.parentloop.counter0|stringformat:"s" %}
-                                            {% with resp=responses|get_item:response_key %}
-                                            {% if col.data_type == 'text' %}
-                                            <input type="text"
-                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
-                                                   class="form-control form-control-sm auto-save"
-                                                   value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                                   placeholder="{{ col.placeholder }}"
-                                                   {% if col.required %}required{% endif %}>
-                                            {% elif col.data_type == 'textarea' %}
-                                            <textarea name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
-                                                      class="form-control form-control-sm auto-save"
-                                                      rows="2"
-                                                      {% if col.required %}required{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
-                                            {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
-                                            <input type="number"
-                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
-                                                   class="form-control form-control-sm auto-save"
-                                                   value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}"
-                                                   step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
-                                                   {% if col.required %}required{% endif %}>
-                                            {% elif col.data_type == 'date' %}
-                                            <input type="date"
-                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
-                                                   class="form-control form-control-sm auto-save"
-                                                   value="{% if resp %}{{ resp.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
-                                                   {% if col.required %}required{% endif %}>
-                                            {% elif col.data_type == 'choice' %}
-                                            <select name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
-                                                    class="form-select form-select-sm auto-save"
-                                                    {% if col.required %}required{% endif %}>
-                                                <option value="">Tanlang...</option>
-                                                {% for choice in col.choices %}
-                                                <option value="{{ choice.value }}" {% if resp and resp.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>
-                                                {% endfor %}
-                                            </select>
-                                            {% elif col.data_type == 'boolean' %}
-                                            <select name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
-                                                    class="form-select form-select-sm auto-save"
-                                                    {% if col.required %}required{% endif %}>
-                                                <option value="">Tanlang...</option>
-                                                <option value="true" {% if resp and resp.value_boolean == True %}selected{% endif %}>Ha</option>
-                                                <option value="false" {% if resp and resp.value_boolean == False %}selected{% endif %}>Yo'q</option>
-                                            </select>
-                                            {% elif col.data_type == 'phone' %}
-                                            <input type="tel"
-                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
-                                                   class="form-control form-control-sm auto-save"
-                                                   value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                                   placeholder="+998901234567"
-                                                   {% if col.required %}required{% endif %}>
-                                            {% else %}
-                                            <input type="text"
-                                                   name="col_{{ col.pk }}_{{ forloop.parentloop.counter0 }}"
-                                                   class="form-control form-control-sm auto-save"
-                                                   value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                                   {% if col.required %}required{% endif %}>
-                                            {% endif %}
-                                            {% endwith %}
-                                            {% endwith %}
-                                        </td>
+                            <!-- KO'P QATORLI JADVAL - Birinchi qator har doim ko'rinadi -->
+                            <tr class="data-row" data-row="0">
+                                <td class="text-center text-muted">1</td>
+                                {% for col in columns %}
+                                <td>
+                                    {% with response_key="col_"|add:col.pk|stringformat:"s"|add:"_0" %}
+                                    {% with resp=responses|get_item:response_key %}
+                                    {% if col.data_type == 'text' %}
+                                    <input type="text"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
+                                           placeholder="{{ col.placeholder }}"
+                                           {% if col.required %}required{% endif %}>
+                                    {% elif col.data_type == 'textarea' %}
+                                    <textarea name="col_{{ col.pk }}_0"
+                                              class="form-control form-control-sm auto-save"
+                                              rows="2"
+                                              {% if col.required %}required{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
+                                    {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
+                                    <input type="number"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}"
+                                           step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
+                                           {% if col.required %}required{% endif %}>
+                                    {% elif col.data_type == 'date' %}
+                                    <input type="date"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if resp %}{{ resp.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
+                                           {% if col.required %}required{% endif %}>
+                                    {% elif col.data_type == 'choice' %}
+                                    <select name="col_{{ col.pk }}_0"
+                                            class="form-select form-select-sm auto-save"
+                                            {% if col.required %}required{% endif %}>
+                                        <option value="">Tanlang...</option>
+                                        {% for choice in col.choices %}
+                                        <option value="{{ choice.value }}" {% if resp and resp.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>
                                         {% endfor %}
-                                        <td class="text-center">
-                                            <button type="button" class="btn btn-sm btn-outline-danger remove-row">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
+                                    </select>
+                                    {% elif col.data_type == 'boolean' %}
+                                    <select name="col_{{ col.pk }}_0"
+                                            class="form-select form-select-sm auto-save"
+                                            {% if col.required %}required{% endif %}>
+                                        <option value="">Tanlang...</option>
+                                        <option value="true" {% if resp and resp.value_boolean == True %}selected{% endif %}>Ha</option>
+                                        <option value="false" {% if resp and resp.value_boolean == False %}selected{% endif %}>Yo'q</option>
+                                    </select>
+                                    {% elif col.data_type == 'phone' %}
+                                    <input type="tel"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
+                                           placeholder="+998901234567"
+                                           {% if col.required %}required{% endif %}>
+                                    {% else %}
+                                    <input type="text"
+                                           name="col_{{ col.pk }}_0"
+                                           class="form-control form-control-sm auto-save"
+                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
+                                           {% if col.required %}required{% endif %}>
                                     {% endif %}
+                                    {% endwith %}
+                                    {% endwith %}
+                                </td>
                                 {% endfor %}
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-row">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
                             {% else %}
+                            <!-- BIR QATORLI JADVAL -->
                             <tr class="data-row" data-row="0">
                                 <td class="text-center text-muted">1</td>
                                 {% for col in columns %}
@@ -264,6 +262,7 @@
                 <button type="button" class="btn btn-outline-primary btn-sm" id="addRow">
                     <i class="bi bi-plus-lg"></i> Qator qo'shish
                 </button>
+                <span class="text-muted ms-2 small">Minimal: {{ task.min_rows }} | Maksimal: {{ task.max_rows }} qator</span>
             </div>
             {% endif %}
         </div>
@@ -534,6 +533,73 @@
     </div>
 </div>
 
+<!-- Row Template for JavaScript (hidden) -->
+<template id="rowTemplate">
+    <tr class="data-row" data-row="__ROW__">
+        <td class="text-center text-muted">__NUM__</td>
+        {% for col in columns %}
+        <td>
+            {% if col.data_type == 'text' %}
+            <input type="text"
+                   name="col_{{ col.pk }}___ROW__"
+                   class="form-control form-control-sm auto-save"
+                   placeholder="{{ col.placeholder }}"
+                   {% if col.required %}required{% endif %}>
+            {% elif col.data_type == 'textarea' %}
+            <textarea name="col_{{ col.pk }}___ROW__"
+                      class="form-control form-control-sm auto-save"
+                      rows="2"
+                      {% if col.required %}required{% endif %}></textarea>
+            {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
+            <input type="number"
+                   name="col_{{ col.pk }}___ROW__"
+                   class="form-control form-control-sm auto-save"
+                   step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
+                   {% if col.required %}required{% endif %}>
+            {% elif col.data_type == 'date' %}
+            <input type="date"
+                   name="col_{{ col.pk }}___ROW__"
+                   class="form-control form-control-sm auto-save"
+                   {% if col.required %}required{% endif %}>
+            {% elif col.data_type == 'choice' %}
+            <select name="col_{{ col.pk }}___ROW__"
+                    class="form-select form-select-sm auto-save"
+                    {% if col.required %}required{% endif %}>
+                <option value="">Tanlang...</option>
+                {% for choice in col.choices %}
+                <option value="{{ choice.value }}">{{ choice.label }}</option>
+                {% endfor %}
+            </select>
+            {% elif col.data_type == 'boolean' %}
+            <select name="col_{{ col.pk }}___ROW__"
+                    class="form-select form-select-sm auto-save"
+                    {% if col.required %}required{% endif %}>
+                <option value="">Tanlang...</option>
+                <option value="true">Ha</option>
+                <option value="false">Yo'q</option>
+            </select>
+            {% elif col.data_type == 'phone' %}
+            <input type="tel"
+                   name="col_{{ col.pk }}___ROW__"
+                   class="form-control form-control-sm auto-save"
+                   placeholder="+998901234567"
+                   {% if col.required %}required{% endif %}>
+            {% else %}
+            <input type="text"
+                   name="col_{{ col.pk }}___ROW__"
+                   class="form-control form-control-sm auto-save"
+                   {% if col.required %}required{% endif %}>
+            {% endif %}
+        </td>
+        {% endfor %}
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-row">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
 <style>
 .border-dashed {
     border-style: dashed !important;
@@ -576,29 +642,43 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                saveStatus.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saqlandi';
+                saveStatus.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saqlandi (' + data.saved_count + ' ta)';
             } else {
-                saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-warning"></i> Xatolik';
+                saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-warning"></i> Xatolik: ' + (data.error || '');
             }
         })
         .catch(error => {
+            console.error('Auto-save error:', error);
             saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-danger"></i> Xatolik';
         });
     }
 
-    // Listen for changes on auto-save fields
-    document.querySelectorAll('.auto-save').forEach(input => {
-        input.addEventListener('input', function() {
-            clearTimeout(saveTimeout);
-            saveStatus.innerHTML = '<i class="bi bi-three-dots"></i> O\'zgarishlar...';
-            saveTimeout = setTimeout(autoSave, 2000);
-        });
+    // Attach auto-save listeners
+    function attachAutoSaveListeners() {
+        document.querySelectorAll('.auto-save').forEach(input => {
+            // Remove existing listeners
+            input.removeEventListener('input', handleInput);
+            input.removeEventListener('change', handleChange);
 
-        input.addEventListener('change', function() {
-            clearTimeout(saveTimeout);
-            autoSave();
+            // Add new listeners
+            input.addEventListener('input', handleInput);
+            input.addEventListener('change', handleChange);
         });
-    });
+    }
+
+    function handleInput() {
+        clearTimeout(saveTimeout);
+        saveStatus.innerHTML = '<i class="bi bi-three-dots"></i> O\'zgarishlar...';
+        saveTimeout = setTimeout(autoSave, 2000);
+    }
+
+    function handleChange() {
+        clearTimeout(saveTimeout);
+        autoSave();
+    }
+
+    // Initial attach
+    attachAutoSaveListeners();
 
     // Manual save button
     document.getElementById('saveBtn')?.addEventListener('click', function() {
@@ -608,36 +688,74 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add row for multiple rows table
     {% if task.allow_multiple_rows %}
+    const maxRows = {{ task.max_rows|default:100 }};
     let rowCount = document.querySelectorAll('.data-row').length;
 
     document.getElementById('addRow')?.addEventListener('click', function() {
+        if (rowCount >= maxRows) {
+            alert('Maksimal qatorlar soni: ' + maxRows);
+            return;
+        }
+
         const tbody = document.getElementById('tableBody');
-        const newRow = document.querySelector('.data-row').cloneNode(true);
+        const template = document.getElementById('rowTemplate');
 
-        newRow.dataset.row = rowCount;
-        newRow.querySelector('td:first-child').textContent = rowCount + 1;
+        // Get template content
+        let newRowHtml = template.innerHTML;
 
-        newRow.querySelectorAll('input, select, textarea').forEach(input => {
-            const name = input.name;
-            input.name = name.replace(/_\d+$/, '_' + rowCount);
-            input.value = '';
-        });
+        // Replace placeholders
+        newRowHtml = newRowHtml.replace(/__ROW__/g, rowCount);
+        newRowHtml = newRowHtml.replace(/__NUM__/g, rowCount + 1);
 
+        // Create new row element
+        const tempDiv = document.createElement('tbody');
+        tempDiv.innerHTML = newRowHtml;
+        const newRow = tempDiv.querySelector('tr');
+
+        // Append to table
         tbody.appendChild(newRow);
         rowCount++;
+
+        // Attach auto-save listeners to new inputs
+        attachAutoSaveListeners();
+
+        // Focus first input in new row
+        const firstInput = newRow.querySelector('input, select, textarea');
+        if (firstInput) {
+            firstInput.focus();
+        }
     });
 
     // Remove row
     document.addEventListener('click', function(e) {
         if (e.target.closest('.remove-row')) {
             const rows = document.querySelectorAll('.data-row');
-            if (rows.length > 1) {
-                e.target.closest('.data-row').remove();
-                // Renumber rows
-                document.querySelectorAll('.data-row').forEach((row, index) => {
-                    row.querySelector('td:first-child').textContent = index + 1;
-                });
+            const minRows = {{ task.min_rows|default:1 }};
+
+            if (rows.length <= minRows) {
+                alert('Minimal qatorlar soni: ' + minRows);
+                return;
             }
+
+            e.target.closest('.data-row').remove();
+
+            // Renumber rows
+            document.querySelectorAll('.data-row').forEach((row, index) => {
+                row.querySelector('td:first-child').textContent = index + 1;
+                row.dataset.row = index;
+
+                // Update input names
+                row.querySelectorAll('input, select, textarea').forEach(input => {
+                    if (input.name) {
+                        input.name = input.name.replace(/_\d+$/, '_' + index);
+                    }
+                });
+            });
+
+            rowCount = document.querySelectorAll('.data-row').length;
+
+            // Auto-save after removing
+            autoSave();
         }
     });
     {% endif %}
