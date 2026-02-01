@@ -64,10 +64,17 @@ def task_auto_save(request, pk):
             for key, value in request.POST.items():
                 if key.startswith('col_') and value:
                     parts = key.split('_')
+                    # parts: ['col', '560c853b-4700-4224-9eb5-6f4a69a03a13', '0']
+                    # UUID ichida '-' bor, lekin '_' yo'q
                     if len(parts) >= 3:
                         try:
-                            column_id = parts[1]
-                            row_index = int(parts[2])
+                            # ═══════════════════════════════════════════
+                            # TUZATILDI: UUID to'liq olinadi
+                            # ═══════════════════════════════════════════
+                            # Oxirgi element - row_index
+                            # O'rtadagilar - UUID (birlashtiriladi)
+                            column_id = '_'.join(parts[1:-1])  # UUID ni to'liq olish
+                            row_index = int(parts[-1])  # Oxirgi element - row index
 
                             column = columns.filter(pk=column_id).first()
                             if column:
