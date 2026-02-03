@@ -6,28 +6,70 @@ from django.http import HttpResponse
 from django.db.models import Q, Count
 from django.utils import timezone
 import openpyxl
-from openpyxl.styles import Font, PatternFill
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from .models import Task, TaskColumn, TaskQuestion, TaskAssignment, TaskHistory, TaskResponse
 
 
 # ==============================================================================
-# YORDAMCHI FUNKSIYA (MUAMMONI HAL QILUVCHI)
+# YORDAMCHI FUNKSIYALAR
 # ==============================================================================
 def get_list_secure(request, key):
     """
     HTML formadan kelgan ma'lumotlarni 'name[]' va 'name' formatlarida tekshirib,
     har qanday holatda ham to'liq ro'yxatni qaytaradi.
-    Bu funksiya dinamik qatorlar (ustunlar, savollar) yo'qolib qolishini oldini oladi.
     """
-    # 1-urinish: 'name[]' formatida (masalan: column_title[])
+    # 1. 'name[]' formatida (agar HTML da qavs bo'lsa)
     values = request.POST.getlist(f"{key}[]")
 
-    # 2-urinish: Agar bo'sh bo'lsa, 'name' formatida tekshiramiz (masalan: column_title)
+    # 2. Agar bo'sh bo'lsa, 'name' formatida tekshiramiz (agar HTML da qavs bo'lmasa)
     if not values:
         values = request.POST.getlist(key)
 
     return values
+
+
+def group_responses_by_row(assignment):
+    """
+    Assignment ichidagi javoblarni qatorlar (row_index) bo'yicha guruhlaydi.
+    Natija: [
+        {'row_index': 0, 'answers': {'col_id': 'val1'}},
+        {'row_index': 1, 'answers': {'col_id': 'val2'}},
+    ]
+    """
+    # Barcha javoblarni olamiz
+    responses = assignment.responses.select_related('column', 'question').all()
+
+    # Guruhlash uchun vaqtinchalik lug'at: { row_index: { col_id: value } }
+    grouped = {}
+
+    for resp in responses:
+        # Agar row_index bo'lmasa, 0 deb olamiz
+        idx = resp.row_index if resp.row_index is not None else 0
+
+        if idx not in grouped:
+            grouped[idx] = {}
+
+        if resp.column:
+            grouped[idx][str(resp.column.pk)] = resp.display_value
+        elif resp.question:
+            grouped[idx][str(resp.question.pk)] = resp.display_value
+        else:
+            grouped[idx]['report'] = resp.value_text
+
+    # Agar javoblar bo'lmasa, lekin assignment bor bo'lsa (bo'sh qator)
+    if not grouped and assignment.status in ['submitted', 'approved', 'rejected']:
+        return [{'row_index': 0, 'answers': {}}]
+
+    # Ro'yxatga aylantiramiz va tartiblaymiz
+    result_rows = []
+    for idx in sorted(grouped.keys()):
+        result_rows.append({
+            'row_index': idx,
+            'answers': grouped[idx]
+        })
+
+    return result_rows
 
 
 # ==============================================================================
@@ -37,7 +79,6 @@ def get_list_secure(request, key):
 @login_required
 def task_list(request):
     """Vazifalar ro'yxati"""
-    # Optimallashtirish: N+1 muammosini oldini olish uchun select_related
     tasks = Task.objects.select_related('created_by', 'target_region', 'target_district').all().order_by('-created_at')
 
     # Filterlar
@@ -338,47 +379,50 @@ def task_results(request, pk):
     columns = list(task.columns.order_by('order'))
     questions = list(task.questions.order_by('order'))
 
-    results = []
+    # Natijalarni "yassilash" (Flattening)
+    # 1 Assignment = N ta qator (Row) bo'lishi mumkin
+    flat_results = []
+
     for assignment in assignments:
-        # Har bir assignment uchun javoblarni yig'ish (tezkor lookup uchun dict)
-        answers = {}
+        # Har bir assignmentni qatorlarga ajratamiz (Helper funksiya yordamida)
+        rows = group_responses_by_row(assignment)
 
-        for response in assignment.responses.all():
-            if response.column:
-                # Column ID bo'yicha saqlash
-                answers[str(response.column.pk)] = response.display_value
-            elif response.question:
-                answers[str(response.question.pk)] = response.display_value
-            else:
-                answers['report'] = response.value_text
-
-        results.append({
-            'assignment': assignment,
-            'leader': assignment.leader,
-            'status': assignment.status,
-            'submitted_at': assignment.submitted_at,
-            'answers': answers,
-        })
+        for row in rows:
+            flat_results.append({
+                'assignment': assignment,  # Asl assignment obyekti
+                'leader': assignment.leader,  # Yetakchi ma'lumotlari
+                'status': assignment.status,
+                'submitted_at': assignment.submitted_at,
+                'row_index': row['row_index'],  # Qator raqami (0, 1, 2...)
+                'answers': row['answers'],  # Shu qatorga tegishli javoblar {col_id: value}
+            })
 
     context = {
         'task': task,
         'columns': columns,
         'questions': questions,
-        'results': results,
+        'results': flat_results,  # Endi bu ro'yxatda barcha qatorlar bor
     }
     return render(request, 'tasks/task_results.html', context)
 
 
 @login_required
 def task_export(request, pk):
-    """Natijalarni Excel ga eksport"""
+    """Excelga eksport"""
     task = get_object_or_404(Task, pk=pk)
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Natijalar"
 
-    # Sarlavha
+    # --- Header Style ---
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+    center_align = Alignment(horizontal='center', vertical='center')
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                         top=Side(style='thin'), bottom=Side(style='thin'))
+
+    # Sarlavhalar
     headers = ['№', 'Yetakchi', 'Mahalla', 'Tuman', 'Telefon']
 
     if task.type == Task.Type.TABLE:
@@ -388,58 +432,68 @@ def task_export(request, pk):
         for question in task.questions.order_by('order'):
             headers.append(question.text[:50])
 
-    headers.extend(['Holat', 'Yuborilgan vaqt'])
+    headers.extend(['Holat', 'Vaqt'])
 
-    # Sarlavha yozish va formatlash
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    # Header yozish
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
 
-    # Ma'lumotlar
-    assignments = task.assignments.select_related(
+    # Ma'lumotlarni yig'ish
+    assignments = task.assignments.filter(
+        status__in=['submitted', 'approved', 'rejected']
+    ).select_related(
         'leader', 'leader__mahalla', 'leader__district'
     ).prefetch_related('responses')
 
-    for row_num, assignment in enumerate(assignments, 2):
-        ws.cell(row=row_num, column=1, value=row_num - 1)
-        ws.cell(row=row_num, column=2, value=assignment.leader.get_full_name())
-        ws.cell(row=row_num, column=3, value=str(assignment.leader.mahalla) if assignment.leader.mahalla else '')
-        ws.cell(row=row_num, column=4, value=str(assignment.leader.district) if assignment.leader.district else '')
-        ws.cell(row=row_num, column=5, value=assignment.leader.phone or '')
+    current_row = 2
+    counter = 1
 
-        col_num = 6
-        if task.type == Task.Type.TABLE:
-            for column in task.columns.order_by('order'):
-                response = assignment.responses.filter(column=column).first()
-                value = response.display_value if response else ''
-                ws.cell(row=row_num, column=col_num, value=value)
-                col_num += 1
-        elif task.type == Task.Type.SURVEY:
-            for question in task.questions.order_by('order'):
-                response = assignment.responses.filter(question=question).first()
-                value = response.display_value if response else ''
-                ws.cell(row=row_num, column=col_num, value=value)
-                col_num += 1
+    for assignment in assignments:
+        # Assignmentni qatorlarga ajratamiz (1 assignment = N rows)
+        rows = group_responses_by_row(assignment)
 
-        ws.cell(row=row_num, column=col_num, value=assignment.get_status_display())
-        ws.cell(row=row_num, column=col_num + 1,
-                value=assignment.submitted_at.strftime('%d.%m.%Y %H:%M') if assignment.submitted_at else '')
+        for row_data in rows:
+            # 1. Meta ma'lumotlar
+            ws.cell(row=current_row, column=1, value=counter).border = thin_border
+            ws.cell(row=current_row, column=2, value=assignment.leader.get_full_name()).border = thin_border
+            ws.cell(row=current_row, column=3, value=str(assignment.leader.mahalla or '')).border = thin_border
+            ws.cell(row=current_row, column=4, value=str(assignment.leader.district or '')).border = thin_border
+            ws.cell(row=current_row, column=5, value=assignment.leader.phone or '').border = thin_border
+
+            # 2. Javoblar
+            col_idx = 6
+            answers = row_data['answers']  # Faqat shu qator javoblari
+
+            if task.type == Task.Type.TABLE:
+                for column in task.columns.order_by('order'):
+                    val = answers.get(str(column.pk), '')
+                    ws.cell(row=current_row, column=col_idx, value=val).border = thin_border
+                    col_idx += 1
+            elif task.type == Task.Type.SURVEY:
+                for question in task.questions.order_by('order'):
+                    val = answers.get(str(question.pk), '')
+                    ws.cell(row=current_row, column=col_idx, value=val).border = thin_border
+                    col_idx += 1
+
+            # 3. Status
+            ws.cell(row=current_row, column=col_idx, value=assignment.get_status_display()).border = thin_border
+
+            # 4. Vaqt
+            time_str = assignment.submitted_at.strftime('%d.%m.%Y %H:%M') if assignment.submitted_at else ''
+            ws.cell(row=current_row, column=col_idx + 1, value=time_str).border = thin_border
+
+            current_row += 1
+            counter += 1
 
     # Ustun kengligini avtomatik moslash
-    for col in ws.columns:
-        max_length = 0
-        column = col[0].column_letter  # Get the column name
-        for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = (max_length + 2)
-        ws.column_dimensions[column].width = min(adjusted_width, 50)  # Juda keng bo'lib ketmasligi uchun limit
+    for column_cells in ws.columns:
+        length = max(len(str(cell.value) or "") for cell in column_cells)
+        ws.column_dimensions[column_cells[0].column_letter].width = min(length + 2, 50)
 
-    # Response
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
