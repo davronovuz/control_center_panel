@@ -41,21 +41,17 @@
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm text-center py-3">
                 <div class="fs-2 fw-bold text-success">{{ task.assignments.count|default:"0" }}</div>
-                <div class="text-muted small text-uppercase fw-bold">Jami javoblar</div>
+                <div class="text-muted small text-uppercase fw-bold">Jami javoblar (Topshiriq)</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm text-center py-3">
-                <!-- Statusi 'approved' bo'lganlarni hisoblash -->
-                <div class="fs-2 fw-bold text-info">
-                    {{ task.assignments.all|filter_status:'approved'|length }}
-                </div>
-                <div class="text-muted small text-uppercase fw-bold">Tasdiqlangan</div>
+                <div class="fs-2 fw-bold text-info">{{ results|length }}</div>
+                <div class="text-muted small text-uppercase fw-bold">Jami qatorlar (Data)</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm text-center py-3">
-                <!-- Oddiy foiz hisoblash logikasi (agar modelda bo'lmasa) -->
                 <div class="fs-2 fw-bold text-warning">
                     {% widthratio task.assignments.count task.total_assigned 100 %}%
                 </div>
@@ -68,7 +64,7 @@
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white py-3 border-bottom">
             <h5 class="card-title mb-0 text-primary">
-                <i class="bi bi-table me-2"></i>Natijalar jadvali ({{ results|length }} ta javob)
+                <i class="bi bi-table me-2"></i>Natijalar jadvali ({{ results|length }} ta qator)
             </h5>
         </div>
         <div class="card-body p-0">
@@ -98,40 +94,44 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for result in results %}
+                        {% for row in results %}
                         <tr>
                             <td class="text-center text-muted fw-bold">{{ forloop.counter }}</td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold"
                                          style="width: 36px; height: 36px; font-size: 14px;">
-                                        {{ result.leader.first_name|slice:":1" }}{{ result.leader.last_name|slice:":1" }}
+                                        {{ row.leader.first_name|slice:":1" }}{{ row.leader.last_name|slice:":1" }}
                                     </div>
                                     <div style="line-height: 1.2;">
-                                        <div class="fw-semibold text-dark">{{ result.leader.get_full_name }}</div>
-                                        <small class="text-muted" style="font-size: 0.85rem;">{{ result.leader.phone|default:"" }}</small>
+                                        <div class="fw-semibold text-dark">{{ row.leader.get_full_name }}</div>
+                                        <small class="text-muted" style="font-size: 0.85rem;">{{ row.leader.phone|default:"" }}</small>
+                                        <!-- Agar bitta odam bir nechta qator yozgan bo'lsa, qator raqamini ko'rsatamiz -->
+                                        {% if task.type == 'table' and task.allow_multiple_rows %}
+                                        <span class="badge bg-light text-dark border ms-1">Qator: {{ row.row_index|add:"1" }}</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </td>
                             <td>
-                                <div class="fw-medium">{{ result.leader.mahalla.name|default:"—" }}</div>
-                                <small class="text-muted">{{ result.leader.district.name|default:"" }}</small>
+                                <div class="fw-medium">{{ row.leader.mahalla.name|default:"—" }}</div>
+                                <small class="text-muted">{{ row.leader.district.name|default:"" }}</small>
                             </td>
 
                             <!-- Javoblar -->
                             {% if task.type == 'table' %}
                                 {% for col in columns %}
-                                <td>{{ result.answers|get_item:col.pk|default:"—" }}</td>
+                                <td>{{ row.answers|get_item:col.pk|default:"—" }}</td>
                                 {% endfor %}
                             {% elif task.type == 'survey' %}
                                 {% for q in questions %}
-                                <td>{{ result.answers|get_item:q.pk|default:"—" }}</td>
+                                <td>{{ row.answers|get_item:q.pk|default:"—" }}</td>
                                 {% endfor %}
                             {% elif task.type == 'report' %}
                                 <td>
-                                    <span class="text-break">{{ result.answers.report|default:"—"|truncatechars:100 }}</span>
-                                    {% if result.answers.report|length > 100 %}
-                                    <button type="button" class="btn btn-link btn-sm p-0 ms-1" data-bs-toggle="tooltip" title="{{ result.answers.report }}">
+                                    <span class="text-break">{{ row.answers.report|default:"—"|truncatechars:100 }}</span>
+                                    {% if row.answers.report|length > 100 %}
+                                    <button type="button" class="btn btn-link btn-sm p-0 ms-1" data-bs-toggle="tooltip" title="{{ row.answers.report }}">
                                         <i class="bi bi-info-circle"></i>
                                     </button>
                                     {% endif %}
@@ -139,20 +139,20 @@
                             {% endif %}
 
                             <td class="text-center">
-                                {% if result.status == 'approved' %}
+                                {% if row.status == 'approved' %}
                                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">Tasdiqlangan</span>
-                                {% elif result.status == 'submitted' %}
+                                {% elif row.status == 'submitted' %}
                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill">Yuborilgan</span>
-                                {% elif result.status == 'rejected' %}
+                                {% elif row.status == 'rejected' %}
                                     <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">Rad etilgan</span>
                                 {% else %}
-                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill">{{ result.status }}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill">{{ row.status }}</span>
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                {% if result.submitted_at %}
-                                    <div class="fw-medium">{{ result.submitted_at|date:"d.m.Y" }}</div>
-                                    <small class="text-muted">{{ result.submitted_at|date:"H:i" }}</small>
+                                {% if row.submitted_at %}
+                                    <div class="fw-medium">{{ row.submitted_at|date:"d.m.Y" }}</div>
+                                    <small class="text-muted">{{ row.submitted_at|date:"H:i" }}</small>
                                 {% else %}
                                     <span class="text-muted">—</span>
                                 {% endif %}
@@ -172,7 +172,7 @@
         </div>
         {% if results %}
         <div class="card-footer bg-white py-3">
-            <small class="text-muted">Jami {{ results|length }} ta natija ko'rsatilmoqda</small>
+            <small class="text-muted">Jami {{ results|length }} ta qator ko'rsatilmoqda</small>
         </div>
         {% endif %}
     </div>
