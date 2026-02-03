@@ -8,11 +8,11 @@
 {% block content %}
 <div class="fade-in">
     <!-- Page Header -->
-    <div class="page-header">
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="page-header-title">{{ task.title }}</h1>
+            <h1 class="page-header-title mb-1">{{ task.title }}</h1>
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
+                <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
                     <li class="breadcrumb-item"><a href="{% url 'tasks:task_list' %}">Vazifalar</a></li>
                     <li class="breadcrumb-item"><a href="{% url 'tasks:task_detail' task.pk %}">{{ task.title|truncatechars:20 }}</a></li>
@@ -22,134 +22,169 @@
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'tasks:task_detail' task.pk %}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Orqaga
+                <i class="bi bi-arrow-left me-1"></i> Orqaga
             </a>
             <a href="{% url 'tasks:task_export' task.pk %}" class="btn btn-success">
-                <i class="bi bi-download"></i> Excel yuklash
+                <i class="bi bi-file-earmark-excel me-1"></i> Excel yuklash
             </a>
         </div>
     </div>
 
-    <!-- Stats -->
+    <!-- Stats Cards -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
-            <div class="card text-center py-3">
-                <div class="fs-3 fw-bold text-primary">{{ task.total_assigned }}</div>
-                <div class="text-muted small">Jami tayinlangan</div>
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="fs-2 fw-bold text-primary">{{ task.total_assigned|default:"0" }}</div>
+                <div class="text-muted small text-uppercase fw-bold">Jami tayinlangan</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card text-center py-3">
-                <div class="fs-3 fw-bold text-success">{{ task.total_submitted }}</div>
-                <div class="text-muted small">Yuborilgan</div>
+            <div class="card border-0 shadow-sm text-center py-3">
+                <div class="fs-2 fw-bold text-success">{{ task.assignments.count|default:"0" }}</div>
+                <div class="text-muted small text-uppercase fw-bold">Jami javoblar</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card text-center py-3">
-                <div class="fs-3 fw-bold text-info">{{ task.total_approved }}</div>
-                <div class="text-muted small">Tasdiqlangan</div>
+            <div class="card border-0 shadow-sm text-center py-3">
+                <!-- Statusi 'approved' bo'lganlarni hisoblash -->
+                <div class="fs-2 fw-bold text-info">
+                    {{ task.assignments.all|filter_status:'approved'|length }}
+                </div>
+                <div class="text-muted small text-uppercase fw-bold">Tasdiqlangan</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card text-center py-3">
-                <div class="fs-3 fw-bold text-warning">{{ task.completion_rate }}%</div>
-                <div class="text-muted small">Bajarilish</div>
+            <div class="card border-0 shadow-sm text-center py-3">
+                <!-- Oddiy foiz hisoblash logikasi (agar modelda bo'lmasa) -->
+                <div class="fs-2 fw-bold text-warning">
+                    {% widthratio task.assignments.count task.total_assigned 100 %}%
+                </div>
+                <div class="text-muted small text-uppercase fw-bold">Bajarilish</div>
             </div>
         </div>
     </div>
 
     <!-- Results Table -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title"><i class="bi bi-table me-2"></i>Natijalar jadvali ({{ results|length }} ta javob)</h5>
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h5 class="card-title mb-0 text-primary">
+                <i class="bi bi-table me-2"></i>Natijalar jadvali ({{ results|length }} ta javob)
+            </h5>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-bordered mb-0">
-                    <thead class="table-light">
+                <table class="table table-hover table-bordered mb-0 align-middle">
+                    <thead class="table-light text-nowrap">
                         <tr>
-                            <th style="width: 50px;">#</th>
-                            <th style="min-width: 180px;">Yetakchi</th>
+                            <th style="width: 50px;" class="text-center">#</th>
+                            <th style="min-width: 200px;">Yetakchi</th>
                             <th style="min-width: 150px;">Mahalla</th>
 
+                            <!-- Jadval ustunlari yoki Savollar -->
                             {% if task.type == 'table' %}
                                 {% for col in columns %}
-                                <th style="min-width: 120px;">{{ col.title }}</th>
+                                <th style="min-width: 150px;">{{ col.title }}</th>
                                 {% endfor %}
                             {% elif task.type == 'survey' %}
                                 {% for q in questions %}
-                                <th style="min-width: 150px;">{{ q.text|truncatechars:30 }}</th>
+                                <th style="min-width: 200px;" title="{{ q.text }}">{{ q.text|truncatechars:30 }}</th>
                                 {% endfor %}
                             {% elif task.type == 'report' %}
-                                <th style="min-width: 300px;">Hisobot</th>
+                                <th style="min-width: 300px;">Hisobot matni</th>
                             {% endif %}
 
-                            <th style="width: 100px;">Holat</th>
-                            <th style="width: 140px;">Yuborilgan</th>
+                            <th style="width: 120px;" class="text-center">Holat</th>
+                            <th style="width: 150px;" class="text-center">Vaqt</th>
                         </tr>
                     </thead>
                     <tbody>
-    {% for result in results %}
-    <tr>
-        <td class="text-center text-muted">{{ forloop.counter }}</td>
-        <td>
-            <div class="d-flex align-items-center gap-2">
-                <div class="table-user-avatar" style="width: 35px; height: 35px; font-size: 12px; background: linear-gradient(135deg, #4CAF50, #7CB342); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                    {{ result.leader.first_name|slice:":1" }}{{ result.leader.last_name|slice:":1" }}
-                </div>
-                <div>
-                    <div class="fw-semibold">{{ result.leader.get_full_name }}</div>
-                    <small class="text-muted">{{ result.leader.phone|default:"" }}</small>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div>{{ result.leader.mahalla|default:"—" }}</div>
-            <small class="text-muted">{{ result.leader.district|default:"" }}</small>
-        </td>
+                        {% for result in results %}
+                        <tr>
+                            <td class="text-center text-muted fw-bold">{{ forloop.counter }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold"
+                                         style="width: 36px; height: 36px; font-size: 14px;">
+                                        {{ result.leader.first_name|slice:":1" }}{{ result.leader.last_name|slice:":1" }}
+                                    </div>
+                                    <div style="line-height: 1.2;">
+                                        <div class="fw-semibold text-dark">{{ result.leader.get_full_name }}</div>
+                                        <small class="text-muted" style="font-size: 0.85rem;">{{ result.leader.phone|default:"" }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fw-medium">{{ result.leader.mahalla.name|default:"—" }}</div>
+                                <small class="text-muted">{{ result.leader.district.name|default:"" }}</small>
+                            </td>
 
-        {% if task.type == 'table' %}
-            {% for col in columns %}
-            <td>{{ result.answers|get_item:col.pk|default:"—" }}</td>
-            {% endfor %}
-        {% elif task.type == 'survey' %}
-            {% for q in questions %}
-            <td>{{ result.answers|get_item:q.pk|default:"—" }}</td>
-            {% endfor %}
-        {% elif task.type == 'report' %}
-            <td>{{ result.answers.report|default:"—"|truncatechars:100 }}</td>
-        {% endif %}
+                            <!-- Javoblar -->
+                            {% if task.type == 'table' %}
+                                {% for col in columns %}
+                                <td>{{ result.answers|get_item:col.pk|default:"—" }}</td>
+                                {% endfor %}
+                            {% elif task.type == 'survey' %}
+                                {% for q in questions %}
+                                <td>{{ result.answers|get_item:q.pk|default:"—" }}</td>
+                                {% endfor %}
+                            {% elif task.type == 'report' %}
+                                <td>
+                                    <span class="text-break">{{ result.answers.report|default:"—"|truncatechars:100 }}</span>
+                                    {% if result.answers.report|length > 100 %}
+                                    <button type="button" class="btn btn-link btn-sm p-0 ms-1" data-bs-toggle="tooltip" title="{{ result.answers.report }}">
+                                        <i class="bi bi-info-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            {% endif %}
 
-        <td>
-            {% if result.status == 'approved' %}
-            <span class="badge bg-success">Tasdiqlangan</span>
-            {% elif result.status == 'submitted' %}
-            <span class="badge bg-primary">Yuborilgan</span>
-            {% elif result.status == 'rejected' %}
-            <span class="badge bg-danger">Rad etilgan</span>
-            {% endif %}
-        </td>
-        <td>
-            {% if result.submitted_at %}
-            <span>{{ result.submitted_at|date:"d.m.Y" }}</span>
-            <small class="text-muted d-block">{{ result.submitted_at|date:"H:i" }}</small>
-            {% else %}
-            <span class="text-muted">—</span>
-            {% endif %}
-        </td>
-    </tr>
-    {% empty %}
-    <tr>
-        <td colspan="20" class="text-center py-5 text-muted">
-            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
-            Hali natijalar yo'q
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
+                            <td class="text-center">
+                                {% if result.status == 'approved' %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">Tasdiqlangan</span>
+                                {% elif result.status == 'submitted' %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill">Yuborilgan</span>
+                                {% elif result.status == 'rejected' %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">Rad etilgan</span>
+                                {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill">{{ result.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if result.submitted_at %}
+                                    <div class="fw-medium">{{ result.submitted_at|date:"d.m.Y" }}</div>
+                                    <small class="text-muted">{{ result.submitted_at|date:"H:i" }}</small>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="20" class="text-center py-5">
+                                <div class="text-muted mb-2"><i class="bi bi-inbox fs-1"></i></div>
+                                <h6 class="fw-bold text-muted">Hali natijalar mavjud emas</h6>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
                 </table>
             </div>
         </div>
+        {% if results %}
+        <div class="card-footer bg-white py-3">
+            <small class="text-muted">Jami {{ results|length }} ta natija ko'rsatilmoqda</small>
+        </div>
+        {% endif %}
     </div>
 </div>
+
+<script>
+    // Tooltiplarni ishga tushirish (Bootstrap 5)
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    });
+</script>
 {% endblock %}
