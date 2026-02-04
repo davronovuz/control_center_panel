@@ -1,11 +1,12 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
 
 from accounts.models import User, Region, District, Mahalla, Announcement
-from tasks.models import Task, TaskAssignment
+from tasks.models import Task, TaskAssignment, TaskResponse
 
 
 @login_required
@@ -120,7 +121,9 @@ def statistics(request):
     return render(request, 'dashboard/statistics.html', context)
 
 
-# ========== YETAKCHI PANEL ==========
+# ══════════════════════════════════════════════════════════════════════════════
+# YETAKCHI PANEL
+# ══════════════════════════════════════════════════════════════════════════════
 
 @login_required
 def leader_home(request):
@@ -192,13 +195,18 @@ def leader_tasks(request):
     }
     return render(request, 'dashboard/leader_tasks.html', context)
 
+
 @login_required
 def leader_task_detail(request, pk):
-    """Yetakchi - vazifa tafsilotlari va to'ldirish"""
+    """
+    Yetakchi - vazifa tafsilotlari va to'ldirish
+    Ko'p qatorli jadval to'liq qo'llab-quvvatlanadi
+    """
     if not request.user.is_leader:
         return redirect('dashboard:home')
 
-    assignment = TaskAssignment.objects.select_related('task').get(
+    assignment = get_object_or_404(
+        TaskAssignment.objects.select_related('task'),
         pk=pk,
         leader=request.user
     )
@@ -212,33 +220,89 @@ def leader_task_detail(request, pk):
     if assignment.status in [TaskAssignment.Status.PENDING, TaskAssignment.Status.VIEWED]:
         assignment.start()
 
-    columns = task.columns.order_by('order')
-    questions = task.questions.order_by('order')
+    columns = list(task.columns.order_by('order'))
+    questions = list(task.questions.order_by('order'))
 
-    # ═══════════════════════════════════════════════════════════════
-    # MAVJUD JAVOBLARNI OLISH - TUZATILGAN
-    # ═══════════════════════════════════════════════════════════════
-    responses = {}
-    for response in assignment.responses.select_related('column', 'question').all():
+    # ══════════════════════════════════════════════════════════════════════════
+    # MAVJUD JAVOBLARNI OLISH
+    # ══════════════════════════════════════════════════════════════════════════
+
+    all_responses = assignment.responses.select_related('column', 'question').all()
+
+    # Dictionary: responses[row_index][column_id] = response
+    responses_by_row = {}
+    question_responses = {}
+    report_response = None
+    max_row_index = 0
+
+    for response in all_responses:
         if response.column:
-            # Jadval uchun - OBJECT emas, qiymatni saqlaymiz
-            key = f"col_{response.column.pk}_{response.row_index or 0}"
-            responses[key] = response  # Response object (template da ishlatiladi)
+            row_idx = response.row_index or 0
+            col_id = str(response.column.pk)
+
+            if row_idx not in responses_by_row:
+                responses_by_row[row_idx] = {}
+            responses_by_row[row_idx][col_id] = response
+
+            if row_idx > max_row_index:
+                max_row_index = row_idx
+
         elif response.question:
-            # Savol uchun
-            key = f"q_{response.question.pk}"
-            responses[key] = response
+            q_id = str(response.question.pk)
+            question_responses[q_id] = response
         else:
-            # Hisobot
-            responses['report'] = response
+            report_response = response
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # JADVAL QATORLARINI TAYYORLASH
+    # ══════════════════════════════════════════════════════════════════════════
+
+    table_rows = []
+
+    if task.type == 'table':
+        # Agar javoblar bo'lsa, mavjud qatorlarni ko'rsatamiz
+        if responses_by_row:
+            for row_idx in range(max_row_index + 1):
+                row_data = responses_by_row.get(row_idx, {})
+                table_rows.append({
+                    'index': row_idx,
+                    'number': row_idx + 1,
+                    'cells': row_data
+                })
+        else:
+            # Agar javoblar bo'lmasa, bitta bo'sh qator
+            table_rows.append({
+                'index': 0,
+                'number': 1,
+                'cells': {}
+            })
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CONTEXT
+    # ══════════════════════════════════════════════════════════════════════════
 
     context = {
         'assignment': assignment,
         'task': task,
         'columns': columns,
         'questions': questions,
-        'responses': responses,
+
+        # Jadval uchun
+        'table_rows': table_rows,
+        'max_row_index': max_row_index,
+
+        # Savol javoblari uchun
+        'question_responses': question_responses,
+
+        # Hisobot uchun
+        'report_response': report_response,
+
+        # Sozlamalar
+        'min_rows': task.min_rows,
+        'max_rows': task.max_rows,
+        'allow_multiple_rows': task.allow_multiple_rows,
     }
+
     return render(request, 'dashboard/leader_task_detail.html', context)
 
 
@@ -248,11 +312,18 @@ def leader_task_submit(request, pk):
     if not request.user.is_leader:
         return redirect('dashboard:home')
 
-    assignment = TaskAssignment.objects.get(pk=pk, leader=request.user)
+    assignment = get_object_or_404(TaskAssignment, pk=pk, leader=request.user)
 
     if request.method == 'POST':
+        # Minimal qatorlar tekshiruvi
+        task = assignment.task
+        if task.type == 'table' and task.allow_multiple_rows:
+            rows_count = assignment.responses.filter(column__isnull=False).values('row_index').distinct().count()
+            if rows_count < task.min_rows:
+                messages.error(request, f"Kamida {task.min_rows} ta qator to'ldirilishi kerak!")
+                return redirect('dashboard:leader_task_detail', pk=pk)
+
         assignment.submit()
-        from django.contrib import messages
         messages.success(request, "Vazifa muvaffaqiyatli yuborildi!")
         return redirect('dashboard:leader_tasks')
 

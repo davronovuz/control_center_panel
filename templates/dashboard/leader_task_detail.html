@@ -2,91 +2,52 @@
 {% load task_filters %}
 
 {% block title %}{{ task.title }} | HERMES{% endblock %}
-
 {% block page_title %}Vazifa{% endblock %}
 
 {% block content %}
 <div class="fade-in">
-    <!-- Task Header -->
     <div class="card mb-4">
         <div class="card-body">
             <div class="row align-items-center">
                 <div class="col-12 col-md-8">
                     <h3 class="mb-2">{{ task.title }}</h3>
                     <div class="d-flex flex-wrap gap-2 mb-3">
-                        {% if task.type == 'table' %}
-                        <span class="badge bg-info">📊 Jadval</span>
-                        {% elif task.type == 'survey' %}
-                        <span class="badge" style="background: #9C27B0;">📋 So'rovnoma</span>
-                        {% elif task.type == 'report' %}
-                        <span class="badge bg-warning text-dark">📝 Hisobot</span>
-                        {% elif task.type == 'file' %}
-                        <span class="badge bg-success">📁 Fayl yuklash</span>
-                        {% endif %}
-
-                        {% if task.priority == 'urgent' %}
-                        <span class="badge bg-danger">Shoshilinch</span>
-                        {% elif task.priority == 'high' %}
-                        <span class="badge bg-warning text-dark">Muhim</span>
-                        {% endif %}
-
-                        {% if assignment.status == 'submitted' %}
-                        <span class="badge bg-primary">Yuborilgan</span>
-                        {% elif assignment.status == 'approved' %}
-                        <span class="badge bg-success">Tasdiqlandi</span>
-                        {% elif assignment.status == 'rejected' %}
-                        <span class="badge bg-danger">Rad etildi</span>
-                        {% endif %}
+                        {% if task.type == 'table' %}<span class="badge bg-info">📊 Jadval</span>{% endif %}
+                        {% if task.priority == 'urgent' %}<span class="badge bg-danger">Shoshilinch</span>{% endif %}
+                        {% if assignment.status == 'submitted' %}<span class="badge bg-primary">Yuborilgan</span>{% endif %}
+                        {% if assignment.status == 'approved' %}<span class="badge bg-success">Tasdiqlandi</span>{% endif %}
                     </div>
-
-                    {% if task.description %}
-                    <p class="text-muted mb-0">{{ task.description }}</p>
-                    {% endif %}
+                    {% if task.description %}<p class="text-muted mb-0">{{ task.description }}</p>{% endif %}
                 </div>
                 <div class="col-12 col-md-4 text-md-end mt-3 mt-md-0">
-                    <div class="mb-2">
-                        <small class="text-muted">Muddat:</small>
-                        <span class="{% if task.is_overdue %}text-danger fw-bold{% else %}fw-semibold{% endif %}">
-                            {{ task.deadline|date:"d.m.Y H:i" }}
-                        </span>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Qolgan vaqt:</small>
-                        <span class="{% if task.is_overdue %}text-danger{% else %}text-success{% endif %} fw-semibold">
-                            {{ task.time_remaining|default:"—" }}
-                        </span>
-                    </div>
-                    <div>
-                        <small class="text-muted">Jarayon:</small>
-                        <span class="fw-semibold">{{ assignment.progress }}%</span>
-                    </div>
+                    <div class="mb-2"><small class="text-muted">Muddat:</small> <span class="fw-semibold">{{ task.deadline|date:"d.m.Y H:i" }}</span></div>
+                    <div><small class="text-muted">Jarayon:</small> <span class="fw-semibold">{{ assignment.progress }}%</span></div>
                 </div>
             </div>
-
-            <!-- Progress Bar -->
-            <div class="progress mt-3" style="height: 10px;">
-                <div class="progress-bar" style="width: {{ assignment.progress }}%"></div>
-            </div>
+            <div class="progress mt-3" style="height: 10px;"><div class="progress-bar" style="width: {{ assignment.progress }}%"></div></div>
         </div>
     </div>
 
     {% if task.instructions %}
-    <!-- Instructions -->
     <div class="alert alert-info mb-4">
         <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Ko'rsatmalar</h6>
         <p class="mb-0">{{ task.instructions }}</p>
     </div>
     {% endif %}
 
-    <!-- Task Form -->
     <form method="POST" id="taskForm" enctype="multipart/form-data">
         {% csrf_token %}
 
         {% if task.type == 'table' %}
-        <!-- TABLE TYPE -->
         <div class="card mb-4">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0"><i class="bi bi-table me-2"></i>Ma'lumotlarni kiriting</h5>
+                {% if allow_multiple_rows and assignment.can_edit %}
+                <div class="d-flex gap-2">
+                    <a href="{% url 'api:task_excel_template' assignment.pk %}" class="btn btn-outline-success btn-sm"><i class="bi bi-download me-1"></i>Shablon</a>
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#excelImportModal"><i class="bi bi-file-earmark-excel me-1"></i>Excel import</button>
+                </div>
+                {% endif %}
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -94,309 +55,73 @@
                         <thead class="table-light">
                             <tr>
                                 <th style="width: 50px;">#</th>
-                                {% for col in columns %}
-                                <th style="min-width: {{ col.width }}px;">
-                                    {{ col.title }}
-                                    {% if col.required %}<span class="text-danger">*</span>{% endif %}
-                                    {% if col.help_text %}
-                                    <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip" title="{{ col.help_text }}"></i>
-                                    {% endif %}
-                                </th>
-                                {% endfor %}
-                                {% if task.allow_multiple_rows %}
-                                <th style="width: 60px;"></th>
-                                {% endif %}
+                                {% for col in columns %}<th style="min-width: {{ col.width }}px;">{{ col.title }}{% if col.required %}<span class="text-danger">*</span>{% endif %}</th>{% endfor %}
+                                {% if allow_multiple_rows and assignment.can_edit %}<th style="width: 60px;"></th>{% endif %}
                             </tr>
                         </thead>
                         <tbody id="tableBody">
-                            {% if task.allow_multiple_rows %}
-                            <!-- KO'P QATORLI JADVAL - Birinchi qator har doim ko'rinadi -->
-                            <tr class="data-row" data-row="0">
-                                <td class="text-center text-muted">1</td>
+                            {% for row in table_rows %}
+                            <tr class="data-row" data-row="{{ row.index }}">
+                                <td class="text-center text-muted row-number">{{ row.number }}</td>
                                 {% for col in columns %}
                                 <td>
-                                    {% with response_key="col_"|add:col.pk|stringformat:"s"|add:"_0" %}
-                                    {% with resp=responses|get_item:response_key %}
-                                    {% if col.data_type == 'text' %}
-                                    <input type="text"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                           placeholder="{{ col.placeholder }}"
-                                           {% if col.required %}required{% endif %}>
-                                    {% elif col.data_type == 'textarea' %}
-                                    <textarea name="col_{{ col.pk }}_0"
-                                              class="form-control form-control-sm auto-save"
-                                              rows="2"
-                                              {% if col.required %}required{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
-                                    {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
-                                    <input type="number"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}"
-                                           step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
-                                           {% if col.required %}required{% endif %}>
+                                    {% with cell=row.cells|get_item:col.pk|stringformat:"s" %}
+                                    {% if col.data_type == 'number' or col.data_type == 'decimal' %}
+                                    <input type="number" name="col_{{ col.pk }}_{{ row.index }}" class="form-control form-control-sm auto-save" value="{% if cell %}{{ cell.value_number|default:'' }}{% endif %}" step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}" {% if not assignment.can_edit %}disabled{% endif %}>
                                     {% elif col.data_type == 'date' %}
-                                    <input type="date"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
-                                           {% if col.required %}required{% endif %}>
+                                    <input type="date" name="col_{{ col.pk }}_{{ row.index }}" class="form-control form-control-sm auto-save" value="{% if cell and cell.value_date %}{{ cell.value_date|date:'Y-m-d' }}{% endif %}" {% if not assignment.can_edit %}disabled{% endif %}>
                                     {% elif col.data_type == 'choice' %}
-                                    <select name="col_{{ col.pk }}_0"
-                                            class="form-select form-select-sm auto-save"
-                                            {% if col.required %}required{% endif %}>
+                                    <select name="col_{{ col.pk }}_{{ row.index }}" class="form-select form-select-sm auto-save" {% if not assignment.can_edit %}disabled{% endif %}>
                                         <option value="">Tanlang...</option>
-                                        {% for choice in col.choices %}
-                                        <option value="{{ choice.value }}" {% if resp and resp.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>
-                                        {% endfor %}
+                                        {% for choice in col.choices %}<option value="{{ choice.value }}" {% if cell and cell.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>{% endfor %}
                                     </select>
                                     {% elif col.data_type == 'boolean' %}
-                                    <select name="col_{{ col.pk }}_0"
-                                            class="form-select form-select-sm auto-save"
-                                            {% if col.required %}required{% endif %}>
+                                    <select name="col_{{ col.pk }}_{{ row.index }}" class="form-select form-select-sm auto-save" {% if not assignment.can_edit %}disabled{% endif %}>
                                         <option value="">Tanlang...</option>
-                                        <option value="true" {% if resp and resp.value_boolean == True %}selected{% endif %}>Ha</option>
-                                        <option value="false" {% if resp and resp.value_boolean == False %}selected{% endif %}>Yo'q</option>
+                                        <option value="true" {% if cell and cell.value_boolean == True %}selected{% endif %}>Ha</option>
+                                        <option value="false" {% if cell and cell.value_boolean == False %}selected{% endif %}>Yo'q</option>
                                     </select>
-                                    {% elif col.data_type == 'phone' %}
-                                    <input type="tel"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                           placeholder="+998901234567"
-                                           {% if col.required %}required{% endif %}>
                                     {% else %}
-                                    <input type="text"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                           {% if col.required %}required{% endif %}>
+                                    <input type="text" name="col_{{ col.pk }}_{{ row.index }}" class="form-control form-control-sm auto-save" value="{% if cell %}{{ cell.value_text|default:'' }}{% endif %}" placeholder="{{ col.placeholder }}" {% if not assignment.can_edit %}disabled{% endif %}>
                                     {% endif %}
-                                    {% endwith %}
                                     {% endwith %}
                                 </td>
                                 {% endfor %}
-                                <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-outline-danger remove-row">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
+                                {% if allow_multiple_rows and assignment.can_edit %}<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash"></i></button></td>{% endif %}
                             </tr>
-                            {% else %}
-                            <!-- BIR QATORLI JADVAL -->
-                            <tr class="data-row" data-row="0">
-                                <td class="text-center text-muted">1</td>
-                                {% for col in columns %}
-                                <td>
-                                    {% with response_key="col_"|add:col.pk|stringformat:"s"|add:"_0" %}
-                                    {% with resp=responses|get_item:response_key %}
-                                    {% if col.data_type == 'text' %}
-                                    <input type="text"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                           placeholder="{{ col.placeholder }}"
-                                           {% if col.required %}required{% endif %}>
-                                    {% elif col.data_type == 'textarea' %}
-                                    <textarea name="col_{{ col.pk }}_0"
-                                              class="form-control form-control-sm auto-save"
-                                              rows="2"
-                                              {% if col.required %}required{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
-                                    {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
-                                    <input type="number"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}"
-                                           step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
-                                           {% if col.required %}required{% endif %}>
-                                    {% elif col.data_type == 'date' %}
-                                    <input type="date"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
-                                           {% if col.required %}required{% endif %}>
-                                    {% elif col.data_type == 'choice' %}
-                                    <select name="col_{{ col.pk }}_0"
-                                            class="form-select form-select-sm auto-save"
-                                            {% if col.required %}required{% endif %}>
-                                        <option value="">Tanlang...</option>
-                                        {% for choice in col.choices %}
-                                        <option value="{{ choice.value }}" {% if resp and resp.value_choice == choice.value %}selected{% endif %}>{{ choice.label }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    {% elif col.data_type == 'boolean' %}
-                                    <select name="col_{{ col.pk }}_0"
-                                            class="form-select form-select-sm auto-save"
-                                            {% if col.required %}required{% endif %}>
-                                        <option value="">Tanlang...</option>
-                                        <option value="true" {% if resp and resp.value_boolean == True %}selected{% endif %}>Ha</option>
-                                        <option value="false" {% if resp and resp.value_boolean == False %}selected{% endif %}>Yo'q</option>
-                                    </select>
-                                    {% elif col.data_type == 'phone' %}
-                                    <input type="tel"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                           placeholder="+998901234567"
-                                           {% if col.required %}required{% endif %}>
-                                    {% else %}
-                                    <input type="text"
-                                           name="col_{{ col.pk }}_0"
-                                           class="form-control form-control-sm auto-save"
-                                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                                           {% if col.required %}required{% endif %}>
-                                    {% endif %}
-                                    {% endwith %}
-                                    {% endwith %}
-                                </td>
-                                {% endfor %}
-                            </tr>
-                            {% endif %}
+                            {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
-            {% if task.allow_multiple_rows %}
-            <div class="card-footer">
-                <button type="button" class="btn btn-outline-primary btn-sm" id="addRow">
-                    <i class="bi bi-plus-lg"></i> Qator qo'shish
-                </button>
-                <span class="text-muted ms-2 small">Minimal: {{ task.min_rows }} | Maksimal: {{ task.max_rows }} qator</span>
+            {% if allow_multiple_rows and assignment.can_edit %}
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="addRow"><i class="bi bi-plus-lg me-1"></i>Qator qo'shish</button>
+                <small class="text-muted"><span id="rowCount">{{ table_rows|length }}</span> / {{ max_rows }} qator</small>
             </div>
             {% endif %}
         </div>
 
         {% elif task.type == 'survey' %}
-        <!-- SURVEY TYPE -->
         <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0"><i class="bi bi-ui-checks me-2"></i>Savollarga javob bering</h5>
-            </div>
+            <div class="card-header"><h5 class="card-title mb-0"><i class="bi bi-ui-checks me-2"></i>Savollarga javob bering</h5></div>
             <div class="card-body">
                 {% for question in questions %}
                 <div class="mb-4 pb-4 {% if not forloop.last %}border-bottom{% endif %}">
-                    <label class="form-label fw-semibold">
-                        {{ forloop.counter }}. {{ question.text }}
-                        {% if question.required %}<span class="text-danger">*</span>{% endif %}
-                    </label>
-                    {% if question.help_text %}
-                    <small class="text-muted d-block mb-2">{{ question.help_text }}</small>
-                    {% endif %}
-
-                    {% with response_key="q_"|add:question.pk|stringformat:"s" %}
-                    {% with resp=responses|get_item:response_key %}
-                    {% if question.answer_type == 'text' %}
-                    <input type="text"
-                           name="q_{{ question.pk }}"
-                           class="form-control auto-save"
-                           value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}"
-                           {% if question.required %}required{% endif %}>
-
-                    {% elif question.answer_type == 'textarea' %}
-                    <textarea name="q_{{ question.pk }}"
-                              class="form-control auto-save"
-                              rows="4"
-                              {% if question.required %}required{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
-
+                    <label class="form-label fw-semibold">{{ forloop.counter }}. {{ question.text }}{% if question.required %}<span class="text-danger">*</span>{% endif %}</label>
+                    {% with resp=question_responses|get_item:question.pk|stringformat:"s" %}
+                    {% if question.answer_type == 'textarea' %}
+                    <textarea name="q_{{ question.pk }}" class="form-control auto-save" rows="4" {% if not assignment.can_edit %}disabled{% endif %}>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
                     {% elif question.answer_type == 'number' %}
-                    <input type="number"
-                           name="q_{{ question.pk }}"
-                           class="form-control auto-save"
-                           value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}"
-                           {% if question.required %}required{% endif %}>
-
-                    {% elif question.answer_type == 'date' %}
-                    <input type="date"
-                           name="q_{{ question.pk }}"
-                           class="form-control auto-save"
-                           value="{% if resp %}{{ resp.value_date|date:'Y-m-d'|default:'' }}{% endif %}"
-                           {% if question.required %}required{% endif %}>
-
-                    {% elif question.answer_type == 'choice' %}
-                    <div class="mt-2">
-                        {% for choice in question.choices %}
-                        <div class="form-check">
-                            <input class="form-check-input auto-save"
-                                   type="radio"
-                                   name="q_{{ question.pk }}"
-                                   value="{{ choice.value }}"
-                                   id="q_{{ question.pk }}_{{ forloop.counter }}"
-                                   {% if resp and resp.value_choice == choice.value %}checked{% endif %}
-                                   {% if question.required %}required{% endif %}>
-                            <label class="form-check-label" for="q_{{ question.pk }}_{{ forloop.counter }}">
-                                {{ choice.label }}
-                            </label>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                    {% elif question.answer_type == 'multiple' %}
-                    <div class="mt-2">
-                        {% for choice in question.choices %}
-                        <div class="form-check">
-                            <input class="form-check-input auto-save"
-                                   type="checkbox"
-                                   name="q_{{ question.pk }}"
-                                   value="{{ choice.value }}"
-                                   id="q_{{ question.pk }}_{{ forloop.counter }}"
-                                   {% if resp and resp.value_json and choice.value in resp.value_json %}checked{% endif %}>
-                            <label class="form-check-label" for="q_{{ question.pk }}_{{ forloop.counter }}">
-                                {{ choice.label }}
-                            </label>
-                        </div>
-                        {% endfor %}
-                    </div>
-
+                    <input type="number" name="q_{{ question.pk }}" class="form-control auto-save" value="{% if resp %}{{ resp.value_number|default:'' }}{% endif %}" {% if not assignment.can_edit %}disabled{% endif %}>
                     {% elif question.answer_type == 'boolean' %}
                     <div class="mt-2">
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input auto-save"
-                                   type="radio"
-                                   name="q_{{ question.pk }}"
-                                   value="true"
-                                   id="q_{{ question.pk }}_yes"
-                                   {% if resp and resp.value_boolean == True %}checked{% endif %}
-                                   {% if question.required %}required{% endif %}>
-                            <label class="form-check-label" for="q_{{ question.pk }}_yes">Ha</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input auto-save"
-                                   type="radio"
-                                   name="q_{{ question.pk }}"
-                                   value="false"
-                                   id="q_{{ question.pk }}_no"
-                                   {% if resp and resp.value_boolean == False %}checked{% endif %}>
-                            <label class="form-check-label" for="q_{{ question.pk }}_no">Yo'q</label>
-                        </div>
+                        <div class="form-check form-check-inline"><input class="form-check-input auto-save" type="radio" name="q_{{ question.pk }}" value="true" id="q_{{ question.pk }}_yes" {% if resp and resp.value_boolean == True %}checked{% endif %} {% if not assignment.can_edit %}disabled{% endif %}><label class="form-check-label" for="q_{{ question.pk }}_yes">Ha</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input auto-save" type="radio" name="q_{{ question.pk }}" value="false" id="q_{{ question.pk }}_no" {% if resp and resp.value_boolean == False %}checked{% endif %} {% if not assignment.can_edit %}disabled{% endif %}><label class="form-check-label" for="q_{{ question.pk }}_no">Yo'q</label></div>
                     </div>
-
-                    {% elif question.answer_type == 'rating' %}
-                    <div class="rating-input mt-2">
-                        {% for i in "12345" %}
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input auto-save"
-                                   type="radio"
-                                   name="q_{{ question.pk }}"
-                                   value="{{ i }}"
-                                   id="q_{{ question.pk }}_{{ i }}"
-                                   {% if resp and resp.value_number|stringformat:"d" == i %}checked{% endif %}
-                                   {% if question.required %}required{% endif %}>
-                            <label class="form-check-label" for="q_{{ question.pk }}_{{ i }}">{{ i }} ⭐</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                    {% elif question.answer_type == 'file' %}
-                    <input type="file"
-                           name="q_{{ question.pk }}"
-                           class="form-control"
-                           {% if question.required %}required{% endif %}>
-                    {% if resp and resp.value_file %}
-                    <small class="text-muted">Mavjud fayl: {{ resp.value_file.name }}</small>
+                    {% else %}
+                    <input type="text" name="q_{{ question.pk }}" class="form-control auto-save" value="{% if resp %}{{ resp.value_text|default:'' }}{% endif %}" {% if not assignment.can_edit %}disabled{% endif %}>
                     {% endif %}
-                    {% endif %}
-                    {% endwith %}
                     {% endwith %}
                 </div>
                 {% endfor %}
@@ -404,218 +129,66 @@
         </div>
 
         {% elif task.type == 'report' %}
-        <!-- REPORT TYPE -->
         <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0"><i class="bi bi-file-text me-2"></i>Hisobotni yozing</h5>
-            </div>
+            <div class="card-header"><h5 class="card-title mb-0"><i class="bi bi-file-text me-2"></i>Hisobotni yozing</h5></div>
             <div class="card-body">
-                {% with resp=responses|get_item:"report" %}
-                <textarea name="report_text"
-                          class="form-control auto-save"
-                          rows="15"
-                          placeholder="Hisobotingizni shu yerga yozing..."
-                          required>{% if resp %}{{ resp.value_text|default:'' }}{% endif %}</textarea>
-                {% endwith %}
-                <small class="text-muted mt-2 d-block">
-                    <i class="bi bi-info-circle"></i> Minimum 100 ta belgi yozishingiz kerak
-                </small>
-            </div>
-        </div>
-
-        {% elif task.type == 'file' %}
-        <!-- FILE TYPE -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0"><i class="bi bi-file-earmark-arrow-up me-2"></i>Fayllarni yuklang</h5>
-            </div>
-            <div class="card-body">
-                <div class="upload-area p-5 border-2 border-dashed rounded-3 text-center" id="uploadArea">
-                    <i class="bi bi-cloud-arrow-up fs-1 text-muted mb-3 d-block"></i>
-                    <h5>Fayllarni shu yerga tashlang</h5>
-                    <p class="text-muted mb-3">yoki</p>
-                    <input type="file" name="files" id="fileInput" class="d-none" multiple
-                           accept="{{ task.allowed_extensions|join:',' }}">
-                    <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-                        <i class="bi bi-folder2-open"></i> Fayllarni tanlash
-                    </button>
-                    <p class="text-muted mt-3 mb-0 small">
-                        Ruxsat etilgan formatlar: {{ task.allowed_extensions|join:', '|default:'Barcha formatlar' }}<br>
-                        Maksimal hajm: {{ task.max_file_size }} MB | Maksimal fayllar: {{ task.max_files }} ta
-                    </p>
-                </div>
-
-                <!-- Uploaded Files List -->
-                <div id="filesList" class="mt-3">
-                    {% for key, resp in responses.items %}
-                    {% if resp.value_file %}
-                    <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-file-earmark text-primary"></i>
-                            <span>{{ resp.value_file.name|slice:"-30" }}</span>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
+                <textarea name="report_text" class="form-control auto-save" rows="15" placeholder="Hisobotingizni shu yerga yozing..." {% if not assignment.can_edit %}disabled{% endif %} required>{% if report_response %}{{ report_response.value_text|default:'' }}{% endif %}</textarea>
             </div>
         </div>
         {% endif %}
 
-        <!-- Action Buttons -->
         {% if assignment.can_edit %}
         <div class="card">
             <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="text-muted" id="saveStatus">
-                        <i class="bi bi-cloud-check text-success"></i> Avtomatik saqlanadi
-                    </span>
-                </div>
+                <span class="text-muted" id="saveStatus"><i class="bi bi-cloud-check text-success"></i> Avtomatik saqlanadi</span>
                 <div class="d-flex gap-2">
-                    <a href="{% url 'dashboard:leader_tasks' %}" class="btn btn-secondary">
-                        <i class="bi bi-arrow-left"></i> Orqaga
-                    </a>
-                    <button type="button" class="btn btn-outline-primary" id="saveBtn">
-                        <i class="bi bi-save"></i> Saqlash
-                    </button>
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#submitModal">
-                        <i class="bi bi-send"></i> Yuborish
-                    </button>
+                    <a href="{% url 'dashboard:leader_tasks' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Orqaga</a>
+                    <button type="button" class="btn btn-outline-primary" id="saveBtn"><i class="bi bi-save"></i> Saqlash</button>
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#submitModal"><i class="bi bi-send"></i> Yuborish</button>
                 </div>
             </div>
         </div>
         {% else %}
-        <div class="card">
-            <div class="card-body">
-                <a href="{% url 'dashboard:leader_tasks' %}" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Orqaga
-                </a>
-            </div>
-        </div>
+        <div class="card"><div class="card-body"><a href="{% url 'dashboard:leader_tasks' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Orqaga</a></div></div>
         {% endif %}
     </form>
 
-    <!-- Submit Modal -->
     <div class="modal fade" id="submitModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Vazifani yuborish</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
+                <div class="modal-header"><h5 class="modal-title">Vazifani yuborish</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body text-center py-4">
-                    <div class="mb-3">
-                        <i class="bi bi-send text-success" style="font-size: 48px;"></i>
-                    </div>
-                    <h5>Vazifani yuborishni tasdiqlaysizmi?</h5>
-                    <p class="text-muted">
-                        {% if task.allow_edit_after_submit %}
-                        Yuborilgandan keyin ham tahrirlash mumkin bo'ladi.
-                        {% else %}
-                        Yuborilgandan keyin o'zgartirish imkoni bo'lmaydi.
-                        {% endif %}
-                    </p>
+                    <i class="bi bi-send text-success" style="font-size: 48px;"></i>
+                    <h5 class="mt-3">Vazifani yuborishni tasdiqlaysizmi?</h5>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
-                    <form method="POST" action="{% url 'dashboard:leader_task_submit' assignment.pk %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-send"></i> Yuborish
-                        </button>
-                    </form>
+                    <form method="POST" action="{% url 'dashboard:leader_task_submit' assignment.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-success"><i class="bi bi-send"></i> Yuborish</button></form>
                 </div>
             </div>
         </div>
     </div>
+
+    {% if allow_multiple_rows %}
+    <div class="modal fade" id="excelImportModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title"><i class="bi bi-file-earmark-excel me-2"></i>Excel dan import</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Avval <a href="{% url 'api:task_excel_template' assignment.pk %}" class="alert-link">shablonni yuklab oling</a>, to'ldiring va shu yerga yuklang.</div>
+                    <div class="mb-3"><label class="form-label">Excel fayl tanlang</label><input type="file" class="form-control" id="excelFile" accept=".xlsx,.xls"></div>
+                    <div id="importStatus" class="d-none"><div class="progress mb-2"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div></div><p class="text-center text-muted mb-0">Import qilinmoqda...</p></div>
+                    <div id="importResult" class="d-none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="button" class="btn btn-primary" id="importBtn"><i class="bi bi-upload me-1"></i>Import qilish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
-
-<!-- Row Template for JavaScript (hidden) -->
-<template id="rowTemplate">
-    <tr class="data-row" data-row="__ROW__">
-        <td class="text-center text-muted">__NUM__</td>
-        {% for col in columns %}
-        <td>
-            {% if col.data_type == 'text' %}
-            <input type="text"
-                   name="col_{{ col.pk }}___ROW__"
-                   class="form-control form-control-sm auto-save"
-                   placeholder="{{ col.placeholder }}"
-                   {% if col.required %}required{% endif %}>
-            {% elif col.data_type == 'textarea' %}
-            <textarea name="col_{{ col.pk }}___ROW__"
-                      class="form-control form-control-sm auto-save"
-                      rows="2"
-                      {% if col.required %}required{% endif %}></textarea>
-            {% elif col.data_type == 'number' or col.data_type == 'decimal' %}
-            <input type="number"
-                   name="col_{{ col.pk }}___ROW__"
-                   class="form-control form-control-sm auto-save"
-                   step="{% if col.data_type == 'decimal' %}0.01{% else %}1{% endif %}"
-                   {% if col.required %}required{% endif %}>
-            {% elif col.data_type == 'date' %}
-            <input type="date"
-                   name="col_{{ col.pk }}___ROW__"
-                   class="form-control form-control-sm auto-save"
-                   {% if col.required %}required{% endif %}>
-            {% elif col.data_type == 'choice' %}
-            <select name="col_{{ col.pk }}___ROW__"
-                    class="form-select form-select-sm auto-save"
-                    {% if col.required %}required{% endif %}>
-                <option value="">Tanlang...</option>
-                {% for choice in col.choices %}
-                <option value="{{ choice.value }}">{{ choice.label }}</option>
-                {% endfor %}
-            </select>
-            {% elif col.data_type == 'boolean' %}
-            <select name="col_{{ col.pk }}___ROW__"
-                    class="form-select form-select-sm auto-save"
-                    {% if col.required %}required{% endif %}>
-                <option value="">Tanlang...</option>
-                <option value="true">Ha</option>
-                <option value="false">Yo'q</option>
-            </select>
-            {% elif col.data_type == 'phone' %}
-            <input type="tel"
-                   name="col_{{ col.pk }}___ROW__"
-                   class="form-control form-control-sm auto-save"
-                   placeholder="+998901234567"
-                   {% if col.required %}required{% endif %}>
-            {% else %}
-            <input type="text"
-                   name="col_{{ col.pk }}___ROW__"
-                   class="form-control form-control-sm auto-save"
-                   {% if col.required %}required{% endif %}>
-            {% endif %}
-        </td>
-        {% endfor %}
-        <td class="text-center">
-            <button type="button" class="btn btn-sm btn-outline-danger remove-row">
-                <i class="bi bi-trash"></i>
-            </button>
-        </td>
-    </tr>
-</template>
-
-<style>
-.border-dashed {
-    border-style: dashed !important;
-}
-
-.upload-area {
-    background: #f8f9fa;
-    transition: all 0.3s ease;
-}
-
-.upload-area:hover,
-.upload-area.dragover {
-    background: rgba(76, 175, 80, 0.1);
-    border-color: var(--primary-color) !important;
-}
-</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -623,211 +196,126 @@
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('taskForm');
     const saveStatus = document.getElementById('saveStatus');
+    const csrfToken = '{{ csrf_token }}';
     let saveTimeout;
+    let rowCount = {{ table_rows|length|default:1 }};
+    const maxRows = {{ max_rows|default:100 }};
+    const minRows = {{ min_rows|default:1 }};
 
-    // Auto-save function
     function autoSave() {
         saveStatus.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Saqlanmoqda...';
-
         const formData = new FormData(form);
-        formData.append('auto_save', 'true');
-
         fetch('{% url "api:task_auto_save" assignment.pk %}', {
             method: 'POST',
             body: formData,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
+            headers: {'X-CSRFToken': csrfToken}
         })
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
             if (data.success) {
-                saveStatus.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saqlandi (' + data.saved_count + ' ta)';
+                saveStatus.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saqlandi (' + data.saved_count + ')';
             } else {
-                saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-warning"></i> Xatolik: ' + (data.error || '');
+                saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-warning"></i> ' + (data.error || 'Xatolik');
             }
         })
-        .catch(error => {
-            console.error('Auto-save error:', error);
-            saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-danger"></i> Xatolik';
-        });
+        .catch(e => { saveStatus.innerHTML = '<i class="bi bi-exclamation-triangle text-danger"></i> Xatolik'; });
     }
 
-    // Attach auto-save listeners
-    function attachAutoSaveListeners() {
+    function attachListeners() {
         document.querySelectorAll('.auto-save').forEach(input => {
-            // Remove existing listeners
-            input.removeEventListener('input', handleInput);
-            input.removeEventListener('change', handleChange);
-
-            // Add new listeners
-            input.addEventListener('input', handleInput);
-            input.addEventListener('change', handleChange);
+            input.addEventListener('input', function() {
+                clearTimeout(saveTimeout);
+                saveStatus.innerHTML = '<i class="bi bi-three-dots"></i> O\'zgarishlar...';
+                saveTimeout = setTimeout(autoSave, 1500);
+            });
+            input.addEventListener('change', function() { clearTimeout(saveTimeout); autoSave(); });
         });
     }
+    attachListeners();
 
-    function handleInput() {
-        clearTimeout(saveTimeout);
-        saveStatus.innerHTML = '<i class="bi bi-three-dots"></i> O\'zgarishlar...';
-        saveTimeout = setTimeout(autoSave, 2000);
-    }
+    document.getElementById('saveBtn')?.addEventListener('click', function() { clearTimeout(saveTimeout); autoSave(); });
 
-    function handleChange() {
-        clearTimeout(saveTimeout);
-        autoSave();
-    }
-
-    // Initial attach
-    attachAutoSaveListeners();
-
-    // Manual save button
-    document.getElementById('saveBtn')?.addEventListener('click', function() {
-        clearTimeout(saveTimeout);
-        autoSave();
-    });
-
-    // Add row for multiple rows table
-    {% if task.allow_multiple_rows %}
-    const maxRows = {{ task.max_rows|default:100 }};
-    let rowCount = document.querySelectorAll('.data-row').length;
-
+    {% if allow_multiple_rows and assignment.can_edit %}
     document.getElementById('addRow')?.addEventListener('click', function() {
-        if (rowCount >= maxRows) {
-            alert('Maksimal qatorlar soni: ' + maxRows);
-            return;
-        }
-
+        if (rowCount >= maxRows) { alert('Maksimal ' + maxRows + ' ta qator'); return; }
         const tbody = document.getElementById('tableBody');
-        const template = document.getElementById('rowTemplate');
-
-        // Get template content
-        let newRowHtml = template.innerHTML;
-
-        // Replace placeholders
-        newRowHtml = newRowHtml.replace(/__ROW__/g, rowCount);
-        newRowHtml = newRowHtml.replace(/__NUM__/g, rowCount + 1);
-
-        // Create new row element
-        const tempDiv = document.createElement('tbody');
-        tempDiv.innerHTML = newRowHtml;
-        const newRow = tempDiv.querySelector('tr');
-
-        // Append to table
+        const firstRow = tbody.querySelector('.data-row');
+        if (!firstRow) return;
+        const newRow = firstRow.cloneNode(true);
+        newRow.dataset.row = rowCount;
+        newRow.querySelector('.row-number').textContent = rowCount + 1;
+        newRow.querySelectorAll('input, select, textarea').forEach(input => {
+            if (input.name) input.name = input.name.replace(/_\d+$/, '_' + rowCount);
+            input.value = '';
+            if (input.tagName === 'SELECT') input.selectedIndex = 0;
+        });
         tbody.appendChild(newRow);
         rowCount++;
-
-        // Attach auto-save listeners to new inputs
-        attachAutoSaveListeners();
-
-        // Focus first input in new row
-        const firstInput = newRow.querySelector('input, select, textarea');
-        if (firstInput) {
-            firstInput.focus();
-        }
+        document.getElementById('rowCount').textContent = rowCount;
+        attachListeners();
+        newRow.querySelector('input, select, textarea')?.focus();
     });
 
-    // Remove row
     document.addEventListener('click', function(e) {
         if (e.target.closest('.remove-row')) {
             const rows = document.querySelectorAll('.data-row');
-            const minRows = {{ task.min_rows|default:1 }};
-
-            if (rows.length <= minRows) {
-                alert('Minimal qatorlar soni: ' + minRows);
-                return;
-            }
-
-            e.target.closest('.data-row').remove();
-
-            // Renumber rows
-            document.querySelectorAll('.data-row').forEach((row, index) => {
-                row.querySelector('td:first-child').textContent = index + 1;
-                row.dataset.row = index;
-
-                // Update input names
-                row.querySelectorAll('input, select, textarea').forEach(input => {
-                    if (input.name) {
-                        input.name = input.name.replace(/_\d+$/, '_' + index);
-                    }
-                });
+            if (rows.length <= minRows) { alert('Kamida ' + minRows + ' ta qator'); return; }
+            const row = e.target.closest('.data-row');
+            const rowIndex = parseInt(row.dataset.row);
+            fetch('{% url "api:task_delete_row" assignment.pk %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+                body: JSON.stringify({row_index: rowIndex})
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    row.remove();
+                    let i = 0;
+                    document.querySelectorAll('.data-row').forEach(r => {
+                        r.dataset.row = i;
+                        r.querySelector('.row-number').textContent = i + 1;
+                        r.querySelectorAll('input, select, textarea').forEach(inp => {
+                            if (inp.name) inp.name = inp.name.replace(/_\d+$/, '_' + i);
+                        });
+                        i++;
+                    });
+                    rowCount = i;
+                    document.getElementById('rowCount').textContent = rowCount;
+                }
             });
-
-            rowCount = document.querySelectorAll('.data-row').length;
-
-            // Auto-save after removing
-            autoSave();
         }
     });
-    {% endif %}
 
-    // File upload drag & drop
-    {% if task.type == 'file' %}
-    const uploadArea = document.getElementById('uploadArea');
-    const fileInput = document.getElementById('fileInput');
-
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'));
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'));
-    });
-
-    uploadArea.addEventListener('drop', function(e) {
-        const files = e.dataTransfer.files;
-        fileInput.files = files;
-        handleFiles(files);
-    });
-
-    fileInput.addEventListener('change', function() {
-        handleFiles(this.files);
-    });
-
-    function handleFiles(files) {
-        const filesList = document.getElementById('filesList');
-
-        Array.from(files).forEach(file => {
-            const item = document.createElement('div');
-            item.className = 'd-flex align-items-center justify-content-between p-2 bg-light rounded mb-2';
-            item.innerHTML = `
-                <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-file-earmark text-primary"></i>
-                    <span>${file.name}</span>
-                    <small class="text-muted">(${(file.size / 1024 / 1024).toFixed(2)} MB)</small>
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-danger remove-file">
-                    <i class="bi bi-trash"></i>
-                </button>
-            `;
-            filesList.appendChild(item);
+    document.getElementById('importBtn')?.addEventListener('click', function() {
+        const file = document.getElementById('excelFile').files[0];
+        if (!file) { alert('Fayl tanlang'); return; }
+        document.getElementById('importStatus').classList.remove('d-none');
+        document.getElementById('importResult').classList.add('d-none');
+        this.disabled = true;
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('{% url "api:task_excel_import" assignment.pk %}', {
+            method: 'POST',
+            body: formData,
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.json()).then(data => {
+            document.getElementById('importStatus').classList.add('d-none');
+            document.getElementById('importResult').classList.remove('d-none');
+            this.disabled = false;
+            if (data.success) {
+                document.getElementById('importResult').innerHTML = '<div class="alert alert-success mb-0">' + data.message + '</div>';
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                document.getElementById('importResult').innerHTML = '<div class="alert alert-danger mb-0">' + data.error + '</div>';
+            }
+        }).catch(e => {
+            document.getElementById('importStatus').classList.add('d-none');
+            document.getElementById('importResult').innerHTML = '<div class="alert alert-danger mb-0">Xatolik</div>';
+            document.getElementById('importResult').classList.remove('d-none');
+            this.disabled = false;
         });
-    }
-    {% endif %}
-
-    // Tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+    {% endif %}
 });
 </script>
-
-<style>
-.spin {
-    animation: spin 1s linear infinite;
-}
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-</style>
+<style>.spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>
 {% endblock %}
