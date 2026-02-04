@@ -502,3 +502,147 @@ def task_export(request, pk):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
+
+
+import pandas as pd
+import datetime
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+from django.db import transaction
+from .models import Task, TaskHistory
+from .forms import ExcelUploadForm
+
+
+@login_required
+def import_tasks_excel(request):
+    """
+    Excel fayldan vazifalarni professional darajada import qilish.
+    Xatolarni ushlaydi va foydalanuvchiga batafsil hisobot beradi.
+    """
+    if request.method == 'POST':
+        form = ExcelUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            excel_file = request.FILES['excel_file']
+
+            try:
+                # 1. Faylni o'qish (faqat birinchi varaqni)
+                df = pd.read_excel(excel_file, engine='openpyxl')
+
+                # 2. Ustun nomlarini standartlashtirish (probelni olish, kichik harf qilish)
+                df.columns = [c.strip().lower() for c in df.columns]
+
+                # Talab qilinadigan ustunlar (Exceldagi nomlar kichik harfda)
+                required_columns = ['title']
+                # Mavjud ustunlarni tekshirish
+                missing_cols = [col for col in required_columns if col not in df.columns]
+
+                if missing_cols:
+                    messages.error(request, f"Faylda majburiy ustunlar yetishmayapti: {', '.join(missing_cols)}")
+                    return redirect('tasks:import_excel')
+
+                success_count = 0
+                error_list = []
+
+                # 3. Tranzaksiya ochamiz (xavfsizlik uchun)
+                # Agar biror jiddiy xato bo'lsa, hammasini orqaga qaytarish imkoni bo'lishi kerak,
+                # lekin biz bu yerda "skip error" taktikasini qo'llaymiz.
+
+                for index, row in df.iterrows():
+                    row_num = index + 2  # Excelda sarlavha 1-qator, ma'lumot 2-qatordan boshlanadi
+
+                    try:
+                        # --- Title (Majburiy) ---
+                        title = row.get('title')
+                        if pd.isna(title) or str(title).strip() == '':
+                            error_list.append(f"Qator {row_num}: 'Title' bo'sh bo'lishi mumkin emas.")
+                            continue  # Keyingi qatorga o'tamiz
+
+                        # --- Description & Instructions ---
+                        description = row.get('description', '')
+                        instructions = row.get('instructions', '')
+
+                        if pd.isna(description): description = ""
+                        if pd.isna(instructions): instructions = ""
+
+                        # --- Priority ---
+                        priority_raw = str(row.get('priority', 'medium')).lower().strip()
+                        priority_map = {
+                            'yuqori': 'high', 'high': 'high', '3': 'high',
+                            'orta': 'medium', 'o\'rta': 'medium', 'medium': 'medium', '2': 'medium',
+                            'past': 'low', 'low': 'low', '1': 'low'
+                        }
+                        priority = priority_map.get(priority_raw, 'medium')
+
+                        # --- Deadline (Eng nozik qism) ---
+                        deadline_val = row.get('deadline')
+                        final_deadline = None
+
+                        if pd.notnull(deadline_val):
+                            try:
+                                # Agar allaqachon datetime bo'lsa
+                                if isinstance(deadline_val, datetime.datetime):
+                                    final_deadline = deadline_val
+                                # Agar string bo'lsa (2024-12-31 yoki 31.12.2024)
+                                elif isinstance(deadline_val, str):
+                                    final_deadline = pd.to_datetime(deadline_val, dayfirst=True)
+
+                                # Timezone aware qilish (Django ogohlantirish bermasligi uchun)
+                                if final_deadline and timezone.is_naive(final_deadline):
+                                    final_deadline = timezone.make_aware(final_deadline)
+                            except:
+                                # Sana xato bo'lsa, default +3 kun
+                                final_deadline = timezone.now() + datetime.timedelta(days=3)
+                        else:
+                            final_deadline = timezone.now() + datetime.timedelta(days=3)
+
+                        # --- Vazifani Yaratish ---
+                        task = Task.objects.create(
+                            title=str(title).strip(),
+                            description=str(description).strip(),
+                            instructions=str(instructions).strip(),
+                            priority=priority,
+                            deadline=final_deadline,
+                            type='report',  # Default tur
+                            target_all=True,  # Hozircha hammaga
+                            requires_approval=True,
+                            status=Task.Status.DRAFT,  # Qoralama
+                            created_by=request.user
+                        )
+
+                        # Tarixga yozish
+                        TaskHistory.objects.create(
+                            task=task,
+                            action=TaskHistory.Action.CREATED,
+                            actor=request.user,
+                            description=f"Excel orqali import qilindi (Qator {row_num})"
+                        )
+
+                        success_count += 1
+
+                    except Exception as e:
+                        error_list.append(f"Qator {row_num}: Tizim xatoligi - {str(e)}")
+
+                # --- Natija ---
+                if success_count > 0:
+                    messages.success(request, f"✅ {success_count} ta vazifa muvaffaqiyatli yuklandi!")
+
+                if error_list:
+                    # Xatolarni ko'rsatish (maksimum 5 tasini, juda ko'payib ketmasligi uchun)
+                    error_msg = "<br>".join(error_list[:5])
+                    if len(error_list) > 5:
+                        error_msg += f"<br>...va yana {len(error_list) - 5} ta xato."
+                    messages.warning(request,
+                                     f"⚠️ Ba'zi qatorlarda xatoliklar bo'ldi:<br>{error_msg}")  # 'safe' filtri kerak bo'ladi shablonda
+
+                return redirect('tasks:task_list')
+
+            except Exception as e:
+                messages.error(request, f"Excel faylni o'qishda jiddiy xatolik: {str(e)}")
+                return redirect('tasks:import_excel')
+
+    else:
+        form = ExcelUploadForm()
+
+    return render(request, 'tasks/import_excel.html', {'form': form})

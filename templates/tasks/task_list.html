@@ -7,34 +7,41 @@
 {% block content %}
 <div class="fade-in">
     <!-- Page Header -->
-    <div class="page-header">
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="page-header-title">Vazifalar</h1>
+            <h1 class="page-header-title mb-1">Vazifalar</h1>
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
+                <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
                     <li class="breadcrumb-item active">Vazifalar</li>
                 </ol>
             </nav>
         </div>
-        <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> Yangi vazifa
-        </a>
+
+        <!-- TUGMALAR GURUHI -->
+        <div class="d-flex gap-2">
+            <a href="{% url 'tasks:import_excel' %}" class="btn btn-success text-white">
+                <i class="bi bi-file-earmark-spreadsheet me-2"></i>Exceldan yuklash
+            </a>
+            <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-2"></i>Yangi vazifa
+            </a>
+        </div>
     </div>
 
     <!-- Filters -->
-    <div class="card mb-4">
+    <div class="card mb-4 shadow-sm border-0">
         <div class="card-body">
             <form method="GET" class="row g-3">
                 <div class="col-12 col-md-3">
-                    <label class="form-label">Qidirish</label>
+                    <label class="form-label small fw-bold text-muted">Qidirish</label>
                     <div class="input-group">
-                        <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="text" name="search" class="form-control" placeholder="Vazifa nomi..." value="{{ current_filters.search|default:'' }}">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Vazifa nomi..." value="{{ current_filters.search|default:'' }}">
                     </div>
                 </div>
                 <div class="col-6 col-md-2">
-                    <label class="form-label">Holat</label>
+                    <label class="form-label small fw-bold text-muted">Holat</label>
                     <select name="status" class="form-select">
                         <option value="">Barchasi</option>
                         {% for value, label in status_choices %}
@@ -43,7 +50,7 @@
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
-                    <label class="form-label">Muhimlik</label>
+                    <label class="form-label small fw-bold text-muted">Muhimlik</label>
                     <select name="priority" class="form-select">
                         <option value="">Barchasi</option>
                         {% for value, label in priority_choices %}
@@ -52,7 +59,7 @@
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
-                    <label class="form-label">Turi</label>
+                    <label class="form-label small fw-bold text-muted">Turi</label>
                     <select name="type" class="form-select">
                         <option value="">Barchasi</option>
                         {% for value, label in type_choices %}
@@ -61,10 +68,10 @@
                     </select>
                 </div>
                 <div class="col-6 col-md-3 d-flex align-items-end gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-funnel"></i> Filtrlash
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        <i class="bi bi-funnel me-1"></i> Filtrlash
                     </button>
-                    <a href="{% url 'tasks:task_list' %}" class="btn btn-secondary">
+                    <a href="{% url 'tasks:task_list' %}" class="btn btn-light border" title="Filtrni tozalash">
                         <i class="bi bi-x-lg"></i>
                     </a>
                 </div>
@@ -73,156 +80,157 @@
     </div>
 
     <!-- Tasks Table -->
-    <div class="card">
+    <div class="card shadow-sm border-0">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
                         <tr>
-                            <th>Vazifa</th>
+                            <th class="ps-4">Vazifa</th>
                             <th>Turi</th>
                             <th>Holat</th>
                             <th>Muhimlik</th>
                             <th>Muddat</th>
                             <th>Bajarilish</th>
-                            <th class="text-end">Amallar</th>
+                            <th class="text-end pe-4">Amallar</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for task in tasks %}
                         <tr>
-                            <td>
+                            <td class="ps-4">
                                 <div class="d-flex align-items-center gap-3">
-                                    <div class="task-icon d-flex align-items-center justify-content-center rounded-3"
-                                         style="width: 45px; height: 45px; background: {% if task.type == 'table' %}rgba(33, 150, 243, 0.1){% elif task.type == 'survey' %}rgba(156, 39, 176, 0.1){% elif task.type == 'report' %}rgba(255, 152, 0, 0.1){% else %}rgba(76, 175, 80, 0.1){% endif %};">
+                                    <div class="task-icon d-flex align-items-center justify-content-center rounded-3 shadow-sm"
+                                         style="width: 45px; height: 45px; background: {% if task.type == 'table' %}#e3f2fd{% elif task.type == 'survey' %}#f3e5f5{% elif task.type == 'report' %}#fff3e0{% else %}#e8f5e9{% endif %};">
                                         {% if task.type == 'table' %}
-                                        <i class="bi bi-table text-info fs-5"></i>
+                                        <i class="bi bi-table text-primary fs-5"></i>
                                         {% elif task.type == 'survey' %}
-                                        <i class="bi bi-ui-checks text-purple fs-5"></i>
+                                        <i class="bi bi-ui-checks text-purple fs-5" style="color: #9c27b0;"></i>
                                         {% elif task.type == 'report' %}
                                         <i class="bi bi-file-text text-warning fs-5"></i>
                                         {% elif task.type == 'file' %}
-                                        <i class="bi bi-file-earmark-arrow-up text-success fs-5"></i>
+                                        <i class="bi bi-cloud-upload text-success fs-5"></i>
                                         {% else %}
                                         <i class="bi bi-collection text-secondary fs-5"></i>
                                         {% endif %}
                                     </div>
                                     <div>
-                                        <a href="{% url 'tasks:task_detail' task.pk %}" class="fw-semibold text-decoration-none text-dark">
+                                        <a href="{% url 'tasks:task_detail' task.pk %}" class="fw-bold text-decoration-none text-dark d-block mb-1">
                                             {{ task.title }}
                                         </a>
-                                        <div class="small text-muted">
-                                            {{ task.total_assigned }} yetakchi
+                                        <div class="small text-muted d-flex align-items-center">
+                                            <i class="bi bi-people me-1"></i> {{ task.total_assigned }} yetakchi
                                         </div>
                                     </div>
                                 </div>
                             </td>
                             <td>
                                 {% if task.type == 'table' %}
-                                <span class="badge badge-info">Jadval</span>
+                                <span class="badge bg-light text-primary border border-primary-subtle">Jadval</span>
                                 {% elif task.type == 'survey' %}
-                                <span class="badge" style="background: rgba(156, 39, 176, 0.15); color: #9C27B0;">So'rovnoma</span>
+                                <span class="badge bg-light border" style="color: #9c27b0; border-color: #e1bee7 !important;">So'rovnoma</span>
                                 {% elif task.type == 'report' %}
-                                <span class="badge badge-warning">Hisobot</span>
+                                <span class="badge bg-light text-warning border border-warning-subtle">Hisobot</span>
                                 {% elif task.type == 'file' %}
-                                <span class="badge badge-success">Fayl</span>
+                                <span class="badge bg-light text-success border border-success-subtle">Fayl</span>
                                 {% else %}
-                                <span class="badge badge-secondary">Aralash</span>
+                                <span class="badge bg-light text-secondary border">Aralash</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if task.status == 'draft' %}
-                                <span class="badge badge-secondary">Qoralama</span>
+                                <span class="badge bg-secondary">Qoralama</span>
                                 {% elif task.status == 'active' %}
-                                <span class="badge badge-success">Faol</span>
+                                <span class="badge bg-success">Faol</span>
                                 {% elif task.status == 'paused' %}
-                                <span class="badge badge-warning">To'xtatilgan</span>
+                                <span class="badge bg-warning text-dark">To'xtatilgan</span>
                                 {% elif task.status == 'completed' %}
-                                <span class="badge badge-info">Yakunlangan</span>
+                                <span class="badge bg-info text-white">Yakunlangan</span>
                                 {% elif task.status == 'cancelled' %}
-                                <span class="badge badge-danger">Bekor qilingan</span>
+                                <span class="badge bg-danger">Bekor qilingan</span>
                                 {% else %}
-                                <span class="badge badge-secondary">{{ task.get_status_display }}</span>
+                                <span class="badge bg-light text-dark border">{{ task.get_status_display }}</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if task.priority == 'low' %}
-                                <span class="text-success"><i class="bi bi-arrow-down"></i> Past</span>
+                                <span class="badge rounded-pill text-bg-success bg-opacity-10 text-success"><i class="bi bi-arrow-down me-1"></i>Past</span>
                                 {% elif task.priority == 'medium' %}
-                                <span class="text-info"><i class="bi bi-dash"></i> O'rta</span>
+                                <span class="badge rounded-pill text-bg-info bg-opacity-10 text-info"><i class="bi bi-dash me-1"></i>O'rta</span>
                                 {% elif task.priority == 'high' %}
-                                <span class="text-warning"><i class="bi bi-arrow-up"></i> Yuqori</span>
+                                <span class="badge rounded-pill text-bg-warning bg-opacity-10 text-warning"><i class="bi bi-arrow-up me-1"></i>Yuqori</span>
                                 {% elif task.priority == 'urgent' %}
-                                <span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle"></i> Shoshilinch</span>
+                                <span class="badge rounded-pill text-bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Shoshilinch</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if task.is_overdue %}
-                                <span class="text-danger fw-semibold">
-                                    <i class="bi bi-exclamation-circle"></i> O'tgan
-                                </span>
-                                <div class="small text-muted">{{ task.deadline|date:"d.m.Y" }}</div>
+                                {% if task.is_overdue and task.status == 'active' %}
+                                <div class="text-danger fw-bold d-flex align-items-center">
+                                    <i class="bi bi-exclamation-circle me-1"></i> O'tgan
+                                </div>
+                                <div class="small text-danger opacity-75">{{ task.deadline|date:"d.m.Y" }}</div>
                                 {% else %}
-                                <span>{{ task.deadline|date:"d.m.Y" }}</span>
+                                <div class="fw-semibold">{{ task.deadline|date:"d.m.Y" }}</div>
                                 <div class="small text-muted">{{ task.deadline|date:"H:i" }}</div>
                                 {% endif %}
                             </td>
-                            <td style="width: 130px;">
+                            <td style="width: 150px;">
                                 {% if task.total_assigned > 0 %}
                                 <div class="d-flex align-items-center gap-2">
-                                    <div class="progress flex-grow-1" style="height: 6px;">
-                                        <div class="progress-bar
+                                    <div class="progress flex-grow-1 rounded-pill" style="height: 6px;">
+                                        <div class="progress-bar rounded-pill
                                             {% if task.completion_rate >= 80 %}bg-success
                                             {% elif task.completion_rate >= 50 %}bg-warning
                                             {% else %}bg-danger{% endif %}"
+                                            role="progressbar"
                                             style="width: {{ task.completion_rate }}%">
                                         </div>
                                     </div>
-                                    <span class="small fw-semibold" style="min-width: 35px;">{{ task.completion_rate }}%</span>
+                                    <span class="small fw-bold text-muted" style="min-width: 35px;">{{ task.completion_rate }}%</span>
                                 </div>
                                 {% else %}
-                                <span class="text-muted">—</span>
+                                <span class="text-muted small">Topshirilmagan</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end">
+                            <td class="text-end pe-4">
                                 <div class="dropdown">
-                                    <button class="btn btn-sm btn-icon btn-secondary" data-bs-toggle="dropdown">
+                                    <button class="btn btn-sm btn-light border btn-icon" data-bs-toggle="dropdown">
                                         <i class="bi bi-three-dots-vertical"></i>
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
                                         <li>
-                                            <a class="dropdown-item" href="{% url 'tasks:task_detail' task.pk %}">
-                                                <i class="bi bi-eye"></i> Ko'rish
+                                            <a class="dropdown-item py-2" href="{% url 'tasks:task_detail' task.pk %}">
+                                                <i class="bi bi-eye me-2 text-primary"></i> Ko'rish
                                             </a>
                                         </li>
                                         {% if task.status == 'draft' %}
                                         <li>
-                                            <a class="dropdown-item" href="{% url 'tasks:task_edit' task.pk %}">
-                                                <i class="bi bi-pencil"></i> Tahrirlash
+                                            <a class="dropdown-item py-2" href="{% url 'tasks:task_edit' task.pk %}">
+                                                <i class="bi bi-pencil me-2 text-warning"></i> Tahrirlash
                                             </a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item text-success" href="{% url 'tasks:task_publish' task.pk %}">
-                                                <i class="bi bi-send"></i> E'lon qilish
+                                            <a class="dropdown-item py-2 fw-bold text-success" href="{% url 'tasks:task_publish' task.pk %}">
+                                                <i class="bi bi-send me-2"></i> E'lon qilish
                                             </a>
                                         </li>
                                         {% endif %}
-                                        {% if task.status == 'active' %}
+                                        {% if task.status == 'active' or task.status == 'completed' %}
                                         <li>
-                                            <a class="dropdown-item" href="{% url 'tasks:task_results' task.pk %}">
-                                                <i class="bi bi-bar-chart"></i> Natijalar
+                                            <a class="dropdown-item py-2" href="{% url 'tasks:task_results' task.pk %}">
+                                                <i class="bi bi-bar-chart me-2 text-info"></i> Natijalar
                                             </a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item" href="{% url 'tasks:task_export' task.pk %}">
-                                                <i class="bi bi-download"></i> Excel yuklash
+                                            <a class="dropdown-item py-2" href="{% url 'tasks:task_export' task.pk %}">
+                                                <i class="bi bi-download me-2 text-secondary"></i> Excel yuklash
                                             </a>
                                         </li>
                                         {% endif %}
                                         <li><hr class="dropdown-divider"></li>
                                         <li>
-                                            <a class="dropdown-item text-danger" href="{% url 'tasks:task_delete' task.pk %}">
-                                                <i class="bi bi-trash"></i> O'chirish
+                                            <a class="dropdown-item py-2 text-danger" href="{% url 'tasks:task_delete' task.pk %}">
+                                                <i class="bi bi-trash me-2"></i> O'chirish
                                             </a>
                                         </li>
                                     </ul>
@@ -231,16 +239,21 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7">
-                                <div class="empty-state">
-                                    <div class="empty-state-icon">
-                                        <i class="bi bi-list-task"></i>
+                            <td colspan="7" class="py-5">
+                                <div class="empty-state text-center">
+                                    <div class="empty-state-icon mb-3">
+                                        <i class="bi bi-clipboard-x display-4 text-muted"></i>
                                     </div>
-                                    <div class="empty-state-title">Vazifalar topilmadi</div>
-                                    <p class="empty-state-text">Hozircha hech qanday vazifa yo'q yoki filter bo'yicha natija topilmadi.</p>
-                                    <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
-                                        <i class="bi bi-plus-lg"></i> Yangi vazifa yaratish
-                                    </a>
+                                    <h5 class="empty-state-title">Vazifalar topilmadi</h5>
+                                    <p class="empty-state-text text-muted mb-4">Hozircha hech qanday vazifa yo'q yoki filter bo'yicha natija topilmadi.</p>
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
+                                            <i class="bi bi-plus-lg me-2"></i> Yangi vazifa
+                                        </a>
+                                        <a href="{% url 'tasks:import_excel' %}" class="btn btn-success text-white">
+                                            <i class="bi bi-file-earmark-spreadsheet me-2"></i> Exceldan yuklash
+                                        </a>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -251,12 +264,12 @@
         </div>
 
         {% if tasks.has_other_pages %}
-        <div class="card-footer">
+        <div class="card-footer bg-white border-top-0 py-3">
             <nav>
                 <ul class="pagination justify-content-center mb-0">
                     {% if tasks.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ tasks.previous_page_number }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">
+                        <a class="page-link border-0 rounded-circle mx-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" href="?page={{ tasks.previous_page_number }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">
                             <i class="bi bi-chevron-left"></i>
                         </a>
                     </li>
@@ -264,17 +277,19 @@
 
                     {% for num in tasks.paginator.page_range %}
                         {% if tasks.number == num %}
-                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        <li class="page-item active">
+                            <span class="page-link border-0 rounded-circle mx-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 32px; height: 32px;">{{ num }}</span>
+                        </li>
                         {% elif num > tasks.number|add:'-3' and num < tasks.number|add:'3' %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ num }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">{{ num }}</a>
+                            <a class="page-link border-0 rounded-circle mx-1 d-flex align-items-center justify-content-center text-dark" style="width: 32px; height: 32px;" href="?page={{ num }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">{{ num }}</a>
                         </li>
                         {% endif %}
                     {% endfor %}
 
                     {% if tasks.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ tasks.next_page_number }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">
+                        <a class="page-link border-0 rounded-circle mx-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" href="?page={{ tasks.next_page_number }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.priority %}&priority={{ current_filters.priority }}{% endif %}{% if current_filters.type %}&type={{ current_filters.type }}{% endif %}">
                             <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>
